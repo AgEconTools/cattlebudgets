@@ -127,6 +127,17 @@ const CC = [
     ["cowint", "Charge interest on money tied up in cows", "", 0, { check: true }],
     ["cowval", "Value of a bred cow", "$", 3000, { step: 100, show: v => v.cowint }],
   ]},
+  { g: "When cash comes and goes", cash: true, f: [   // cash flow timing (Full view); starting guesses
+    ["cfstart", "Cash flow year starts", "", "after", { show: () => false, select: () => [["after", "The month after calves sell"]].concat(MONTH_OPTS) }],
+    ["tcull", "Cull cows and bulls sell", "", v => v.month, { select: () => MONTH_OPTS }],
+    ["tpast", "Pasture fertilizer and spraying paid", "", 3, { select: () => MONTH_OPTS }],
+    ["twin", "Winter annual seed and fertilizer paid", "", 8, { select: () => MONTH_OPTS, show: v => v.wacres > 0 }],
+    ["thay", "Hay paid for", "", 6, { select: () => MONTH_OPTS, src: () => "When hay is bought or made" }],
+    ["tsupp", "Supplement feeding starts", "", 10, { select: () => MONTH_OPTS, src: v => `Spread over the ${num(v.cdays)} days cows are fed` }],
+    ["tvet", "Spring vet work", "", 2, { select: () => MONTH_OPTS, src: () => "Half the vet costs then, half at weaning" }],
+    ["trent", "Rent paid", "", 0, { select: () => MONTH_OPTS }],
+    ["tovh", "Property taxes and insurance paid", "", 11, { select: () => MONTH_OPTS }],
+  ]},
 ];
 
 const ST = [
@@ -173,6 +184,10 @@ const ST = [
   { g: "Ownership costs", f: [
     ["fac", "Pens, chute, fence, water, trailer", "$/head", 12, { step: 1, src: () => "Depreciation and interest for the time owned; a starting guess" }],
     ["ovh", "Overhead and insurance", "$/head", 8, { step: 1 }],
+  ]},
+  { g: "When cash comes and goes", cash: true, f: [   // cash flow timing (Full view); starting guesses
+    ["tplant", "Pasture planting and fertilizer paid", "", v => (v.bmonth + 11) % 12, { select: () => MONTH_OPTS,
+      show: v => v.sys === "ryegrass" || v.sys === "overseed", src: () => "Usually the month before the calves arrive" }],
   ]},
 ];
 
@@ -753,4 +768,67 @@ function payoff(v) {
     cpBE: !bull && dcp > 0 ? v.cp - npv / dcp : null, costPerCalf: !bull && calves > 0 ? (buy + cost - salv) / calves : null,
     annualCost, bullPerCalf: bull ? annualCost / Math.max(perYearCalves, 1e-9) : null, bullPerCow: bull ? annualCost / Math.max(v.cows, 1e-9) : null,
     lbToPay: bull ? annualCost / Math.max(perYearCalves, 1e-9) / (v.cp / 100) : null, epdWorth: bull ? pvInc : null };
+}
+
+// ---------- cash flow ----------
+// When each line of the cow-calf or stocker budget is paid or received, month
+// by month, from the same budget rows (so the totals match the budget). Cash
+// only: depreciation and other ownership costs that aren't paid out are left
+// out and reported. Cow-calf covers 12 months from the start the user picks;
+// stocker covers its production period, from the first cash out to the sale.
+const NONCASH = /^(Forage machinery and establishment|Facilities and equipment|Pens, |Bull depreciation|Interest on cow investment)/;
+function cashFlow(key, v) {
+  const r = key === "cc" ? cowCalf(v) : stocker(v);
+  let months, place;                                    // months: calendar month of each column
+  if (key === "cc") {
+    const start = v.cfstart === "after" || v.cfstart == null ? (v.month + 1) % 12 : Number(v.cfstart);
+    months = Array.from({ length: 12 }, (_, i) => (start + i) % 12);
+    const col = m => months.indexOf(((m % 12) + 12) % 12);
+    const at = m => [[col(m), 1]];
+    const even = () => months.map((_, i) => [i, 1 / 12]);
+    const run = (m, n) => Array.from({ length: n }, (_, i) => [col(m + i), 1 / n]);
+    place = row => {
+      const it = row.item;
+      if (/^(Steer|Heifer) calves|^Marketing|^Interest on operating/.test(it)) return at(v.month);
+      if (/^Cull (cows|bulls)/.test(it)) return at(v.tcull);
+      if (/^Pasture upkeep/.test(it)) return at(v.tpast);
+      if (/^Winter annual/.test(it)) return at(v.twin);
+      if (/^Hay/.test(it)) return at(v.thay);
+      if (/^Supplement/.test(it)) return run(v.tsupp, Math.max(1, Math.round(v.cdays / 30.4)));
+      if (/^Vet/.test(it)) return [[col(v.tvet), .5], [col(v.month), .5]];
+      if (/^Breeding/.test(it)) return at(v.tvet + 2);
+      if (/^Land rent/.test(it)) return at(v.trent);
+      if (/^Overhead/.test(it)) return at(v.tovh);
+      return even();                                      // mineral, labor, fuel, repairs
+    };
+  } else {
+    const n = Math.max(1, Math.round(v.days / 30.4));     // months owned; the sale is in month n
+    const annual = v.sys === "ryegrass" || v.sys === "overseed";
+    const plant = annual ? -(((v.bmonth - v.tplant) % 12 + 12) % 12) : 0;   // months before the purchase
+    const first = Math.min(plant, 0);
+    months = Array.from({ length: n - first + 1 }, (_, i) => ((v.bmonth + first + i) % 12 + 12) % 12);
+    const col = off => off - first;
+    const at = off => [[col(off), 1]];
+    const owned = () => Array.from({ length: n }, (_, i) => [col(i), 1 / n]);
+    place = row => {
+      const it = row.item;
+      if (/^Calves bought|^Freight in|^Processing/.test(it)) return at(0);
+      if (/^Grazing/.test(it)) return annual ? at(plant) : owned();
+      if (/sold$|^Marketing|^Interest/.test(it)) return at(n);
+      return owned();                                     // hay, supplement, mineral, labor, fuel, rent, overhead
+    };
+  }
+  const lines = [], nonCash = [];
+  r.rows.forEach(row => {
+    if (row.sec === "Ownership costs" && NONCASH.test(row.item)) { nonCash.push(row); return; }
+    const sign = row.sec === "Income" ? 1 : -1, cells = months.map(() => 0);
+    place(row).forEach(([i, share]) => { if (i >= 0) cells[i] += sign * row.total * share; });
+    lines.push({ item: row.item, sec: row.sec, cells });
+  });
+  const inflow = months.map((_, i) => lines.reduce((t, l) => t + Math.max(l.cells[i], 0), 0));
+  const outflow = months.map((_, i) => lines.reduce((t, l) => t + Math.min(l.cells[i], 0), 0));
+  let bal = 0, low = 0, lowAt = 0;
+  const balance = months.map((_, i) => { bal += inflow[i] + outflow[i]; if (bal < low) { low = bal; lowAt = i; } return bal; });
+  return { r, months, lines, inflow, outflow, balance, low, lowAt, end: bal,
+           belowZero: balance.filter(b => b < 0).length, nonCash: nonCash.reduce((t, x) => t + x.total, 0) };
 }

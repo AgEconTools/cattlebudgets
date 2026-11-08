@@ -156,6 +156,15 @@ details.grp > summary small { font-weight: 500; color: var(--muted); font-size: 
 .hchart .zero { stroke: var(--ink-2); stroke-width: 1.2; }
 .hchart .up { fill: var(--bar); } .hchart .down { fill: var(--muted); }
 .hchart .now { fill: var(--focus); }
+.cashchart .in { fill: var(--bar); } .cashchart .out { fill: var(--muted); }
+.cashchart .hit { fill: transparent; } .cashchart .hit.sel { fill: var(--accent-soft); fill-opacity: .55; stroke: none; }
+.cashchart .bal { fill: none; stroke: var(--ink); stroke-width: 2.2; stroke-dasharray: 6 4; }
+.cashchart .bal-dot { fill: var(--ink); }
+.viewseg { justify-self: start; }
+.cash-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 10px; }
+@media (max-width: 560px) { .cash-tiles { grid-template-columns: minmax(0, 1fr); } }
+.cf-tbl tr.lowrow td { font-weight: 700; }
+.cf-items { font-size: 12.5px; } .cf-items td, .cf-items th { white-space: nowrap; }
 .hchart rect.sel { stroke: var(--ink); stroke-width: 2; }
 .hchart:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
@@ -239,7 +248,12 @@ footer .legal { display: grid; gap: 8px; margin-top: 18px; }
     <div class="cols">
       <div class="inputs" id="cc-in"></div>
       <div class="panel">
-        <div class="card"><h3>Budget</h3><div class="scroll" id="cc-tbl"></div></div>
+        <div class="seg viewseg" role="radiogroup" aria-label="Show the budget or the cash flow" data-view-for="cc">
+          <button type="button" role="radio" data-view="budget" aria-checked="true">Budget</button>
+          <button type="button" role="radio" data-view="cash" aria-checked="false">Cash flow</button>
+        </div>
+        <div class="card" data-view="budget"><h3>Budget</h3><div class="scroll" id="cc-tbl"></div></div>
+        <div class="card" data-view="cash" hidden><h3 id="cc-cash-h">Cash flow</h3><div id="cc-cash"></div></div>
         <div class="card"><h3>Net return per cow at other calf prices and weaning rates</h3><div class="scroll" id="cc-sens"></div>
           <p class="note" style="margin-top:8px">Steer and heifer prices move together. The outlined cell is your budget.</p></div>
         <div class="card hist"><h3 id="cc-hist-h">Your budget in past years</h3><div id="cc-hist"></div></div>
@@ -267,7 +281,12 @@ footer .legal { display: grid; gap: 8px; margin-top: 18px; }
     <div class="cols">
       <div class="inputs" id="st-in"></div>
       <div class="panel">
-        <div class="card"><h3>Budget</h3><div class="scroll" id="st-tbl"></div></div>
+        <div class="seg viewseg" role="radiogroup" aria-label="Show the budget or the cash flow" data-view-for="st">
+          <button type="button" role="radio" data-view="budget" aria-checked="true">Budget</button>
+          <button type="button" role="radio" data-view="cash" aria-checked="false">Cash flow</button>
+        </div>
+        <div class="card" data-view="budget"><h3>Budget</h3><div class="scroll" id="st-tbl"></div></div>
+        <div class="card" data-view="cash" hidden><h3 id="st-cash-h">Cash flow</h3><div id="st-cash"></div></div>
         <div class="card"><h3>Net return per head at other purchase and sale prices</h3><div class="scroll" id="st-sens"></div>
           <p class="note" style="margin-top:8px">The outlined cell is your budget.</p></div>
         <div class="card hist"><h3 id="st-hist-h">Your budget in past years</h3><div id="st-hist"></div></div>
@@ -397,7 +416,7 @@ footer .legal { display: grid; gap: 8px; margin-top: 18px; }
   </div>
 </div></footer>
 
-<script src="budget.js?v=216b152702"></script>
+<script src="budget.js?v=a59ea6c3e8"></script>
 <script>
 "use strict";
 // the page: forms, tables, charts and tabs; the math is in budget.js
@@ -513,7 +532,7 @@ function fmtField(f, v) {
   return unit.startsWith("%") ? `${label}: ${n}${unit}` : `${label}: ${n} ${unit}`;
 }
 function assumed(st) {   // the inputs Simple hides, in plain words, by group
-  return st.spec.filter(g => g.f).map(g => {
+  return st.spec.filter(g => g.f && !g.cash).map(g => {
     const items = g.f.filter(f => f[1] !== "calc" && !(f[4] || {}).simple && !((f[4] || {}).show && !f[4].show(st.v))).map(f => fmtField(f, st.v));
     return items.length ? `<p><b>${g.g}.</b> ${items.join("; ")}.</p>` : "";
   }).join("") + `<p>Fertilizer, diesel and feed are at last month's average prices (Full view, Market prices).</p>`;
@@ -641,6 +660,7 @@ function drawCC(v) {
   tiles("#cc-tiles", t);
   $("#cc-tbl").innerHTML = table(r);
   showSens("#cc-sens", sens);
+  drawCash("cc", v);
   const e = D.ers;
   $("#cc-ers").innerHTML = `<p class="note" style="color:var(--ink-2)">USDA-ERS estimates for cow-calf farms in its Mississippi Portal region (the Delta and river counties of Mississippi, Louisiana, Arkansas and Tennessee), ${e.year}, per bred cow: operating costs ${usd(e.total_operating_costs)}, value of production ${usd(e.total_gross_value_of_production)}. Its total cost of ${usd(e.total_costs_listed)} also charges for the owner's unpaid labor and land, which this budget leaves out unless you add them. Your budget: operating costs ${usd(r.op / r.N)} and income ${usd(r.income / r.N)} per cow.</p>`;
 }
@@ -649,6 +669,7 @@ function drawST(v) {
   tiles("#st-tiles", t);
   $("#st-tbl").innerHTML = table(r) + `<p class="note" style="margin-top:10px">Cost of gain, all costs except the calves and the interest on them: ${usd(r.cog, 2)} per cwt of gain.</p>`;
   showSens("#st-sens", sens);
+  drawCash("st", v);
 }
 function drawRO(v) {
   const { r, tiles: t, sens } = views("ro", v);
@@ -806,6 +827,7 @@ function reportModel(st) {
   const name = nameFor(key, v);
   return { key, v, r, name, file: `${name}${slug} ${isoDate()}`.replace(/\s+/g, " "), years: key === "pp" ? r.years : null,
     buy: key === "pp" ? v.price + v.extra : null, bull: key === "pp" && isBull(v), neutral: !!s.neutral,
+    cash: key === "cc" || key === "st" ? cashFlow(key, v) : null,
     unitLabel: r.unit, per: r.per, tiles: vw.tiles, inputs,
     sens: { title: s.title || SENS_TITLE[key], rowLabel: s.rowLabel, colLabel: s.colLabel, cols: s.cols.map(c => c.label),
       rows: s.rows.map(row => ({ label: row.label, vals: s.cols.map(c => s.fn(row.val, c.val)), base: s.cols.map(c => row.base && c.base) })) },
@@ -902,6 +924,28 @@ async function buildXlsx(m) {
     row.vals.forEach((_, i) => { const c = x.getCell(i + 2); c.numFmt = m.neutral ? USD2 : USD0; if (row.base[i]) { c.font = { bold: true }; c.border = { top: { style: "medium" }, bottom: { style: "medium" }, left: { style: "medium" }, right: { style: "medium" } }; } }); });
   wsn.getColumn(1).width = 24; for (let i = 2; i <= m.sens.cols.length + 1; i++) wsn.getColumn(i).width = 13;
 
+  if (m.cash) {
+    const cf = m.cash, n = cf.months.length, ws2 = wb.addWorksheet("Cash flow", { views: [{ showGridLines: false, state: "frozen", xSplit: 1, ySplit: 2 }],
+      pageSetup: { paperSize: 1, orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 } });
+    ws2.addRow([`Cash in (+) and out (-) by month. Cash only: ${usd(cf.nonCash)} of depreciation and other ownership costs that aren't paid out are left out.`]).font = { italic: true, size: 9 };
+    const hr = ws2.addRow(["Item", ...cf.months.map(mm => MONTHS[mm]), "Total"]); hr.font = { bold: true };
+    const col = i => String.fromCharCode(66 + i);          // B, C, ... (at most 13 month columns)
+    const first = ws2.rowCount + 1;
+    cf.lines.forEach(l => { const x = ws2.addRow([l.item, ...l.cells.map(c => Math.round(c * 100) / 100)]);
+      x.getCell(n + 2).value = { formula: `SUM(B${x.number}:${col(n - 1)}${x.number})`, result: l.cells.reduce((a, b) => a + b, 0) };
+      for (let i = 2; i <= n + 2; i++) x.getCell(i).numFmt = USD0; });
+    const last = ws2.rowCount;
+    const sumRow = (label, f, vals) => { const x = ws2.addRow([label]); x.font = { bold: true };
+      for (let i = 0; i < n; i++) { x.getCell(i + 2).value = { formula: f(col(i), x.number), result: vals[i] }; x.getCell(i + 2).numFmt = USD0; }
+      return x.number; };
+    const rin = sumRow("Cash in", c => `SUMIF(${c}${first}:${c}${last},">0")`, cf.inflow);
+    const rout = sumRow("Cash out", c => `SUMIF(${c}${first}:${c}${last},"<0")`, cf.outflow);
+    const rnet = sumRow("Net", c => `${c}${rin}+${c}${rout}`, cf.inflow.map((x, i) => x + cf.outflow[i]));
+    sumRow("Running balance", (c, rn) => c === "B" ? `B${rnet}` : `${String.fromCharCode(c.charCodeAt(0) - 1)}${rn}+${c}${rnet}`, cf.balance);
+    ws2.getColumn(1).width = 34; for (let i = 2; i <= n + 2; i++) ws2.getColumn(i).width = 11;
+    ws2.addRow([]);
+    ws2.addRow([`Operating money needed at the low point: ${usd(-Math.min(cf.low, 0))} in ${MONTHS_LONG[cf.months[cf.lowAt]]}.`]).font = { bold: true };
+  }
   if (m.years) {
     const wy = wb.addWorksheet("Year by year", { views: [{ showGridLines: false, state: "frozen", ySplit: 2 }] });
     wy.addRow([`Per head bought. Running total starts with the purchase (${usd(m.buy)}); death loss is spread across the years as an expected share.`]).font = { italic: true, size: 9 };
@@ -1005,6 +1049,17 @@ async function buildDocx(m) {
   kids.push(table(sw2, [headRow([m.sens.rowLabel].concat(m.sens.cols), sw2, i => i > 0)].concat(m.sens.rows.map(row => new d.TableRow({
     children: [cell(row.label, sw2[0], { bold: true, size: 19 })].concat(row.vals.map((x, i) => cell(money(x, m.neutral ? 2 : 0), sw2[i + 1], { right: true, size: 19, bold: row.base[i], fill: row.base[i] ? "F3E9EB" : undefined }))) })))));
 
+  if (m.cash) {
+    const cf = m.cash;
+    kids.push(h("Cash flow"));
+    kids.push(para([run(`Operating money needed at the low point: ${money(-Math.min(cf.low, 0))} in ${MONTHS_LONG[cf.months[cf.lowAt]]}. ` +
+      `The running balance is below zero ${num(cf.belowZero)} of ${num(cf.months.length)} months and ends at ${money(cf.end)}. ` +
+      `Cash only: ${money(cf.nonCash)} of depreciation and other ownership costs that aren't paid out are left out.`, { size: 19 })], { spacing: { after: 120 } }));
+    const cw2 = [2400, 1920, 1920, 1920, 1920];
+    kids.push(table(cw2, [headRow(["Month", "Cash in", "Cash out", "Net", "Running balance"], cw2, i => i > 0)].concat(cf.months.map((mm, i) => new d.TableRow({ cantSplit: true,
+      children: [MONTHS_LONG[mm], cf.inflow[i] ? money(cf.inflow[i]) : "–", cf.outflow[i] ? money(-cf.outflow[i]) : "–", money(cf.inflow[i] + cf.outflow[i]), money(cf.balance[i])]
+        .map((x, j) => cell(x, cw2[j], { right: j > 0, size: 18, bold: i === cf.lowAt && cf.low < 0 })) })))));
+  }
   if (m.years) {
     kids.push(h("Year by year, per head"));
     const yw = [1080, 1440, 1560, 1440, 1440, 1440, 1680];
@@ -1044,6 +1099,59 @@ async function buildDocx(m) {
         new d.TextRun({ children: [d.PageNumber.TOTAL_PAGES], font: "Arial", size: 16, color: "777777" })] })] }) },
       children: kids }] });
   return d.Packer.toBlob(doc);
+}
+
+// ---------- cash flow ----------
+const VIEW = { cc: "budget", st: "budget" };
+function showView(key, view) {
+  VIEW[key] = view;
+  document.querySelectorAll(`[data-view-for="${key}"] button`).forEach(b => b.setAttribute("aria-checked", String(b.dataset.view === view)));
+  document.querySelectorAll(`#p-${key} .card[data-view]`).forEach(c => { c.hidden = c.dataset.view !== view; });
+}
+function cashChart(cf) {            // money in above the line, money out below, the running balance as a line
+  const W = 640, H = 250, L = 80, R = 12, T = 12, B = 26, n = cf.months.length;
+  const vals = cf.inflow.concat(cf.outflow, cf.balance, [0]);
+  let lo = Math.min(...vals), hi = Math.max(...vals);
+  const step = niceStep((hi - lo) / 4 || 1);
+  lo = Math.floor(lo / step) * step; hi = Math.ceil(hi / step) * step;
+  const y = v => T + (hi - v) / (hi - lo) * (H - T - B), bw = (W - L - R) / n;
+  let s = `<svg class="hchart cashchart" viewBox="0 0 ${W} ${H}" role="img" tabindex="0" aria-label="Cash in and out by month, with the running balance. Use the arrow keys to read each month.">`;
+  for (let v = lo; v <= hi + step / 2; v += step)
+    s += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" class="${Math.abs(v) < 1e-9 ? "zero" : "grid"}"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${usd(v)}</text>`;
+  cf.months.forEach((m, i) => {
+    const x = L + i * bw, w = bw * .62, x0 = x + bw * .19;
+    if (cf.inflow[i] > 0) s += `<rect x="${x0}" y="${y(cf.inflow[i])}" width="${w}" height="${Math.max(y(0) - y(cf.inflow[i]), 1)}" class="in"/>`;
+    if (cf.outflow[i] < 0) s += `<rect x="${x0}" y="${y(0)}" width="${w}" height="${Math.max(y(cf.outflow[i]) - y(0), 1)}" class="out"/>`;
+    s += `<rect x="${x}" y="${T}" width="${bw}" height="${H - T - B}" class="hit" data-say="${MONTHS[m]}: in ${usd(cf.inflow[i])}, out ${usd(-cf.outflow[i])}, balance ${usd(cf.balance[i])}"><title>${MONTHS[m]}</title></rect>`;
+    s += `<text x="${x + bw / 2}" y="${H - 8}" text-anchor="middle">${MONTHS[m]}</text>`;
+  });
+  s += `<polyline class="bal" points="${cf.balance.map((b, i) => `${L + i * bw + bw / 2},${y(b)}`).join(" ")}"/>`;
+  cf.balance.forEach((b, i) => { s += `<circle cx="${L + i * bw + bw / 2}" cy="${y(b)}" r="3" class="bal-dot"/>`; });
+  return s + `</svg><p class="readout" aria-live="polite">Point at a month, or click the chart and use the arrow keys, to read it.</p>`;
+}
+function drawCash(key, v) {
+  const box = $(`#${key}-cash`); if (!box) return;
+  const cf = cashFlow(key, v), lowM = MONTHS_LONG[cf.months[cf.lowAt]];
+  const head = key === "cc"
+    ? `<div class="fields" style="padding:0 0 8px"><div class="f wide"><label for="cc-cfs">Year starts</label><div class="in"><select id="cc-cfs">${
+        [["after", `The month after calves sell (${MONTHS_LONG[(v.month + 1) % 12]})`]].concat(MONTH_OPTS).map(([k, n]) => `<option value="${k}"${String(k) === String(v.cfstart) ? " selected" : ""}>${n}</option>`).join("")}</select></div></div></div>`
+    : `<p class="note" style="margin-bottom:8px">From the first cash out to the sale: ${MONTHS_LONG[cf.months[0]]} to ${MONTHS_LONG[cf.months[cf.months.length - 1]]}.</p>`;
+  const stat = (val, label, kind) => `<div class="tile ${kind || ""}"><b>${val}</b><span>${label}</span></div>`;
+  const per = key === "cc" ? "cow" : "head";
+  box.innerHTML = head + `<div class="tiles cash-tiles">
+      ${stat(cf.low < 0 ? usd(-cf.low) : "$0", `operating money needed at the low point (${lowM})`)}
+      ${stat(`${num(cf.belowZero)} of ${num(cf.months.length)}`, "months the running balance is below zero")}
+      ${stat(usd(cf.end), key === "cc" ? "cash left at the end of the year" : "cash left after the sale", cf.end >= 0 ? "pos" : "neg")}
+    </div>` + cashChart(cf) +
+    `<p class="note" style="margin-top:6px">Cash only. Depreciation and other ownership costs that aren't paid out (${usd(cf.nonCash)}, ${usd(cf.nonCash / cf.r.N)} per ${per}) are left out, so the cash left over is the budget's net return plus that amount. When each cost is paid can be changed in the Full view, under When cash comes and goes.</p>
+    <div class="scroll"><table class="tbl cf-tbl"><thead><tr><th>Month</th><th>Cash in</th><th>Cash out</th><th>Net</th><th>Running balance</th></tr></thead><tbody>
+    ${cf.months.map((m, i) => `<tr${i === cf.lowAt && cf.low < 0 ? ' class="lowrow"' : ""}><td>${MONTHS_LONG[m]}</td><td class="num">${cf.inflow[i] ? usd(cf.inflow[i]) : "–"}</td><td class="num">${cf.outflow[i] ? usd(-cf.outflow[i]) : "–"}</td><td class="num${cf.inflow[i] + cf.outflow[i] < 0 ? " neg" : ""}">${usd(cf.inflow[i] + cf.outflow[i])}</td><td class="num${cf.balance[i] < 0 ? " neg" : ""}">${usd(cf.balance[i])}</td></tr>`).join("")}
+    </tbody></table></div>
+    <details class="hist-tbl"><summary>See each line by month</summary><div class="scroll"><table class="tbl cf-items"><thead><tr><th>Item</th>${cf.months.map(m => `<th>${MONTHS[m]}</th>`).join("")}<th>Total</th></tr></thead><tbody>
+    ${cf.lines.map(l => `<tr><td>${l.item}</td>${l.cells.map(c => `<td class="num${c < 0 ? " neg" : ""}">${Math.abs(c) < .5 ? "" : usd(c)}</td>`).join("")}<td class="num${l.cells.reduce((a, b) => a + b, 0) < 0 ? " neg" : ""}">${usd(l.cells.reduce((a, b) => a + b, 0))}</td></tr>`).join("")}
+    </tbody></table></div></details>`;
+  const sel = $("#cc-cfs");
+  if (sel) sel.addEventListener("change", () => { CCF.typed.cfstart = sel.value === "after" ? "after" : Number(sel.value); update(CCF); });
 }
 
 // ---------- purchase payoff ----------
@@ -1207,6 +1315,8 @@ function about() {
   <h3>Your budget in past years</h3>
   <p>Each budget tab ends with a chart of the same budget, with your herd, weights and feeding, priced at each past year's prices, back to ${D.history ? D.history.meta.start.slice(0, 4) : "2011"}. Calf, feeder and cull cow prices are Mississippi auction prices for the months you choose (USDA-AMS and MDAC, with MSU and LMIC history). Mississippi's record has gaps (2003–2005 for every class; heifers, the heaviest feeders and cull cows through 2010); for these charts only, those months are estimated from neighboring states' auction prices (Alabama, Tennessee, Missouri, Oklahoma, Texas and Arkansas for feeders; Georgia and Kentucky for cull cows), scaled by how Mississippi's prices compared with theirs just before and after each gap. Tested on years Mississippi did report, the estimates came within about 3% on average. Retained cattle sell at the 5-area fed cattle price the month they would have finished. Costs are averaged over the months they are spent.</p>
   <p>Several input prices the budgets use today started recently, so earlier years use the closest price that goes back: fertilizer uses USDA-NASS retail prices for Mississippi's region through 2014 and BLS or World Bank prices after; Alabama and Memphis feeds use BLS indexes, Omaha corn and Illinois soybean meal; Alabama hay uses the USDA-NASS national hay price; diesel uses EIA's Gulf Coast price; and the Mississippi cattle wage before 2014 is carried back by the consumer price index. Each is scaled to the local price over the months both exist. These are estimates; the further back, the rougher.</p>
+  <h3>Cash flow</h3>
+  <p>The Cow-calf and Stocker tabs can show the same budget as a cash flow: the month each sale comes in and each cost is paid, and the running balance. Its low point is about how much operating money the year or the group of cattle needs. Calf and cull sales, marketing and the operating loan's interest fall in the sale month; pasture fertilizer, winter annual seed, hay, supplement, vet work, rent and property taxes and insurance fall in the months set in the Full view; mineral, labor, fuel and repairs are spread evenly. Stocker calves, freight and processing are paid at purchase, ryegrass planting the month before, and the sale and interest at the end. Depreciation and other ownership costs that aren't paid out are left out.</p>
   <h3>Purchase payoff</h3>
   <p>The Purchase payoff tab follows a bred cow, bred heifer or bull bought now through its years in your herd. Each year it adds the calves weaned (or, for a bull, the extra weaning weight from better genetics) and subtracts the yearly cost of keeping the animal, with death loss taken as an expected share each year, then adds its cull value at the end. Calf weights, calf prices, the weaning rate and yearly costs start from your Cow-calf budget, so change those there or here. Net present value discounts each year at your interest rate: a positive value means the purchase pays for itself and earns more than your cost of money. The most you can pay is the price that makes it exactly zero. Today's calf prices are high by history; the calf price note shows the 10-year average so you can test a lower price.</p>
   <h3>What the budgets include</h3>
@@ -1250,6 +1360,7 @@ fetch("data/prices.json").then(r => { if (!r.ok) throw new Error(r.status); retu
   document.querySelectorAll("[data-mode-for]").forEach(seg => seg.querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
     const f = { cc: CCF, st: STF }[seg.dataset.modeFor]; f.mode = b.dataset.mode; update(f);
   })));
+  document.querySelectorAll("[data-view-for]").forEach(seg => seg.querySelectorAll("button").forEach(b => b.addEventListener("click", () => showView(seg.dataset.viewFor, b.dataset.view))));
   document.querySelectorAll("#fb-seg button").forEach(b => b.addEventListener("click", () => { FBF.typed.sys = b.dataset.sys; update(FBF); }));
   drawPrices(); drawForage(); about();
   document.querySelectorAll(".tab").forEach(b => b.addEventListener("click", () => showTab(b.dataset.tab)));
