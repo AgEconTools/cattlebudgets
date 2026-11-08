@@ -130,6 +130,7 @@ details.grp > summary small { font-weight: 500; color: var(--muted); font-size: 
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tbl tr.sec td { color: var(--link); } }
 .tbl tr.tot td { font-weight: 700; }
 .tbl tr.net td { font-weight: 700; font-size: 16px; border-bottom: 0; }
+.tbl tr.pick td { background: var(--accent-soft); }
 .tbl td small { display: block; color: var(--muted); font-size: 12.5px; font-weight: 400; }
 .tbl .neg { color: var(--neg); }
 .scroll { overflow-x: auto; }
@@ -237,6 +238,10 @@ footer .legal { display: grid; gap: 8px; margin-top: 18px; }
       <p class="sub">Yearly costs and returns for a cow herd that sells weaned calves and raises its own replacement heifers. Prices start from last month's Mississippi averages; change any number to match your farm.</p>
     </div>
     <div class="modebar">
+      <div class="seg" role="radiogroup" aria-label="Costs the cattle must cover" data-cover-for="cc" title="Operating costs: what you spend this year. All costs: also depreciation, facilities, overhead, taxes and insurance.">
+        <button type="button" role="radio" data-cover="op">Operating costs</button>
+        <button type="button" role="radio" data-cover="all">All costs</button>
+      </div>
       <div class="seg" role="radiogroup" aria-label="How much detail" data-mode-for="cc">
         <button type="button" role="radio" data-mode="simple">Simple</button>
         <button type="button" role="radio" data-mode="full">Full</button>
@@ -270,6 +275,10 @@ footer .legal { display: grid; gap: 8px; margin-top: 18px; }
       <p class="sub">Costs and returns for one group of calves bought, grown on pasture and sold as feeders. Purchase and sale prices start from last month's Mississippi auction averages for the weights you enter.</p>
     </div>
     <div class="modebar">
+      <div class="seg" role="radiogroup" aria-label="Costs the cattle must cover" data-cover-for="st" title="Operating costs: what you spend this year. All costs: also depreciation, facilities, overhead, taxes and insurance.">
+        <button type="button" role="radio" data-cover="op">Operating costs</button>
+        <button type="button" role="radio" data-cover="all">All costs</button>
+      </div>
       <div class="seg" role="radiogroup" aria-label="How much detail" data-mode-for="st">
         <button type="button" role="radio" data-mode="simple">Simple</button>
         <button type="button" role="radio" data-mode="full">Full</button>
@@ -325,7 +334,11 @@ footer .legal { display: grid; gap: 8px; margin-top: 18px; }
       <p class="sub">Finish your own cattle and sell the beef by the whole, half or quarter, priced per pound of hanging weight. Your own calves are charged at what they would bring at auction, so the net return is what finishing and selling direct earns over selling them at the barn.</p>
     </div>
     <div class="modebar">
-    <div class="seg" role="radiogroup" aria-label="How the cattle are finished" id="fb-seg">
+    <div class="seg" role="radiogroup" aria-label="Costs the cattle must cover" data-cover-for="fb" title="Operating costs: what you spend this year. All costs: also depreciation, facilities, overhead, taxes and insurance.">
+        <button type="button" role="radio" data-cover="op">Operating costs</button>
+        <button type="button" role="radio" data-cover="all">All costs</button>
+      </div>
+      <div class="seg" role="radiogroup" aria-label="How the cattle are finished" id="fb-seg">
       <button type="button" role="radio" data-sys="grain">Grain-fed</button>
       <button type="button" role="radio" data-sys="grass">Grass-fed</button>
     </div>
@@ -353,6 +366,10 @@ footer .legal { display: grid; gap: 8px; margin-top: 18px; }
       <p class="sub">Thinking of buying bred cows, bred heifers or a bull? See what they pay back over their years in your herd, the most you can pay, and how the answer changes with calf prices. Calf weights, prices and yearly costs start from your Cow-calf budget; enter the price you'd pay.</p>
     </div>
     <div class="modebar">
+      <div class="seg" role="radiogroup" aria-label="Costs the cattle must cover" data-cover-for="pp" title="Operating costs: what you spend this year. All costs: also depreciation, facilities, overhead, taxes and insurance.">
+        <button type="button" role="radio" data-cover="op">Operating costs</button>
+        <button type="button" role="radio" data-cover="all">All costs</button>
+      </div>
       <div class="seg" role="radiogroup" aria-label="What you're buying" id="pp-seg">
         <button type="button" role="radio" data-kind="cow">Bred cow</button>
         <button type="button" role="radio" data-kind="heifer">Bred heifer</button>
@@ -416,7 +433,7 @@ footer .legal { display: grid; gap: 8px; margin-top: 18px; }
   </div>
 </div></footer>
 
-<script src="budget.js?v=62513438e5"></script>
+<script src="budget.js?v=654150ca8c"></script>
 <script>
 "use strict";
 // the page: forms, tables, charts and tabs; the math is in budget.js
@@ -538,7 +555,7 @@ function assumed(st) {   // the inputs Simple hides, in plain words, by group
   }).join("") + `<p>Fertilizer, diesel and feed are at last month's average prices (Full view, Market prices).</p>`;
 }
 // ---------- drawing ----------
-function table(res) {
+function table(res, cover) {
   const per = res.per;
   const head = `<thead><tr><th>Item</th><th class="hide-sm">Quantity</th><th class="hide-sm">Price</th><th>Per ${res.unit}</th><th>Total</th></tr></thead>`;
   let body = "", sec = "";
@@ -546,7 +563,7 @@ function table(res) {
   res.rows.forEach((r, i) => {
     if (r.sec !== sec) {
       if (sec === "Income") body += sub("Total income", res.income);
-      if (sec === "Operating costs") body += sub("Total operating costs", res.op) + sub("Return over operating costs", res.income - res.op, "tot");
+      if (sec === "Operating costs") body += sub("Total operating costs", res.op) + sub("Return over operating costs", res.income - res.op, cover === "op" ? "tot pick" : "tot");
       sec = r.sec; body += `<tr class="sec"><td colspan="5">${sec}</td></tr>`;
     }
     const pr = r.unit === "$" ? `${num(r.price, 2)}%` : usd(r.price, r.price < 10 ? 2 : 2);
@@ -555,7 +572,7 @@ function table(res) {
   });
   if (sec === "Operating costs") body += sub("Total operating costs", res.op);
   else body += sub("Total ownership costs", res.own);
-  body += sub("Total costs", res.total) + sub("Net return", res.net, "net");
+  body += sub("Total costs", res.total) + sub("Net return", res.net, cover === "all" ? "net pick" : "net");
   return `<table class="tbl">${head}<tbody>${body}</tbody></table>`;
 }
 function tiles(id, list) {
@@ -572,6 +589,7 @@ function sensGrid(rowsDef, colsDef, fn, rowLabel, colLabel, neutral) {
 function update(st, skip) {
   fill(st); sync(st, skip);
   ({ cc: drawCC, st: drawST, ro: drawRO, fb: drawFB, pp: drawPP })[st.key](st.v);
+  document.querySelectorAll(`[data-cover-for="${st.key}"] button`).forEach(b => b.setAttribute("aria-checked", String(b.dataset.cover === st.v.cover)));
   drawHistory(st);
   if (st.key === "cc") { if (PPF) update(PPF); if (ROF) update(ROF); }   // payoff and retained ownership follow the cow-calf budget
 }
@@ -601,7 +619,7 @@ function views(key, v) {
     }
     const d = [-500, -250, 0, 250, 500], c = [-50, -25, 0, 25, 50];
     return { r, tiles: [
-      [usd(r.maxPay), `most you can pay per ${per} and break even`, "", r.maxPay, "usd0"],
+      [usd(r.maxPay), `most you can pay per ${per} and break even${coverOp(v) ? " on operating costs" : ""}`, "", r.maxPay, "usd0"],
       [usd(r.npv), `net present value per ${per} at your price`, sign(r.npv), r.npv, "usd0"],
       [r.payback != null ? `${num(r.payback, 1)} years` : `Not in ${r.L} years`, "to pay back the purchase", r.payback != null ? "" : "neg", r.payback != null ? r.payback : null, "num1"],
       [usd(r.cpBE, 2), "calf price that breaks even ($/cwt)", "", r.cpBE, "usd2"]],
@@ -612,25 +630,28 @@ function views(key, v) {
   if (key === "cc") {
     const r = cowCalf(v);
     const shifts = [-60, -30, 0, 30, 60], weans = [-10, -5, 0, 5, 10].map(d => v.wean + d).filter(w => w > 0 && w <= 100);
+    const n = netFor(r, v), what = coverOp(v) ? "return over operating costs" : "net return after all costs";
     return { r, tiles: [
-      [usd(r.net / r.N), "net return per cow", sign(r.net), r.net / r.N, "usd0"],
-      [usd(r.net), `net return for ${num(r.N)} cows`, sign(r.net), r.net, "usd0"],
+      [usd(n / r.N), `${what} per cow`, sign(n), n / r.N, "usd0"],
+      [usd(n), `${what} for ${num(r.N)} cows`, sign(n), n, "usd0"],
       [usd(r.beOp, 2), "calf price that covers operating costs ($/cwt)", "", r.beOp, "usd2"],
       [usd(r.beAll, 2), "calf price that covers all costs ($/cwt)", "", r.beAll, "usd2"]],
       sens: { rows: shifts.map(s => ({ val: s, base: s === 0, label: `${usd(v.sp + s)} / ${usd(v.hp + s)}` })),
         cols: weans.map(w => ({ val: w, base: w === v.wean, label: `${num(w)}%` })),
-        fn: (s, w) => cowCalf({ ...v, sp: v.sp + s, hp: v.hp + s, wean: w }).net / v.cows,
+        fn: (s, w) => netFor(cowCalf({ ...v, sp: v.sp + s, hp: v.hp + s, wean: w }), v) / v.cows,
         rowLabel: "Steer / heifer $/cwt", colLabel: "Calves weaned" } };
   }
   if (key === "st") {
-    const r = stocker(v), mb = maxBuy(v), d = [-30, -15, 0, 15, 30];
+    const r = stocker(v), mb = maxBuy(v), d = [-30, -15, 0, 15, 30], op = coverOp(v);
+    const n = netFor(r, v), what = op ? "return over operating costs" : "net return after all costs", c = v.comm / 100;
+    const be = op ? (r.op - r.income * c) / (1 - c) / (r.sold * r.w1) * 100 : r.beSale;
     return { r, tiles: [
-      [usd(r.net / r.N), "net return per head", sign(r.net), r.net / r.N, "usd0"],
-      [usd(r.net), `net return for ${num(r.N)} head`, sign(r.net), r.net, "usd0"],
-      [usd(r.beSale, 2), "sale price that covers all costs ($/cwt)", "", r.beSale, "usd2"],
+      [usd(n / r.N), `${what} per head`, sign(n), n / r.N, "usd0"],
+      [usd(n), `${what} for ${num(r.N)} head`, sign(n), n, "usd0"],
+      [usd(be, 2), `sale price that covers ${op ? "operating" : "all"} costs ($/cwt)`, "", be, "usd2"],
       [usd(mb, 2), "most you can pay and break even ($/cwt)", "", mb, "usd2"]],
       sens: { rows: d.map(s => ({ val: s, base: s === 0, label: usd(v.p0 + s) })), cols: d.map(s => ({ val: s, base: s === 0, label: usd(v.p1 + s) })),
-        fn: (a, b) => stocker({ ...v, p0: v.p0 + a, p1: v.p1 + b }).net / v.head, rowLabel: "Buy $/cwt", colLabel: "Sell $/cwt" } };
+        fn: (a, b) => netFor(stocker({ ...v, p0: v.p0 + a, p1: v.p1 + b }), v) / v.head, rowLabel: "Buy $/cwt", colLabel: "Sell $/cwt" } };
   }
   if (key === "ro") {
     const r = retained(v), d = [-20, -10, 0, 10, 20];
@@ -646,19 +667,20 @@ function views(key, v) {
   const hh = r.hang / 2, procHalf = v.pay === "buyer" ? v.kill / 2 + v.cw * hh : 0;
   const pkg = hh * v.yield / 100, perPkg = pkg > 0 ? (hh * v.ph + procHalf) / pkg : NaN;
   const d = [-1, -.5, 0, .5, 1], c = [-30, -15, 0, 15, 30];
+  const op = coverOp(v), n = netFor(r, v), be = op ? (r.lbs > 0 ? r.op / r.lbs : NaN) : r.beHang;
   return { r, perPkg, procHalf, hh, pkg, tiles: [
-    [usd(r.net / r.N), "net return per head", sign(r.net), r.net / r.N, "usd0"],
-    [usd(r.net), `for ${num(r.N)} head`, sign(r.net), r.net, "usd0"],
-    [usd(r.beHang, 2), "average price that covers all costs ($/lb hanging)", "", r.beHang, "usd2"],
+    [usd(n / r.N), `${op ? "return over operating costs" : "net return after all costs"} per head`, sign(n), n / r.N, "usd0"],
+    [usd(n), `for ${num(r.N)} head`, sign(n), n, "usd0"],
+    [usd(be, 2), `average price that covers ${op ? "operating" : "all"} costs ($/lb hanging)`, "", be, "usd2"],
     [usd(perPkg, 2), "a half buyer's cost per lb of packaged beef", "", perPkg, "usd2"]],
     sens: { rows: d.map(s => ({ val: s, base: s === 0, label: `${usd(v.ph + s, 2)}` })), cols: c.map(s => ({ val: s, base: s === 0, label: usd(v.p0 + s) })),
-      fn: (a, b) => freezer({ ...v, ph: v.ph + a, pq: v.pq + a, pw: v.pw + a, p0: v.p0 + b }).net / v.head, rowLabel: "Half price $/lb", colLabel: "Calf $/cwt" } };
+      fn: (a, b) => netFor(freezer({ ...v, ph: v.ph + a, pq: v.pq + a, pw: v.pw + a, p0: v.p0 + b }), v) / v.head, rowLabel: "Half price $/lb", colLabel: "Calf $/cwt" } };
 }
 const showSens = (id, s) => { $(id).innerHTML = sensGrid(s.rows, s.cols, s.fn, s.rowLabel, s.colLabel, s.neutral); };
 function drawCC(v) {
   const { r, tiles: t, sens } = views("cc", v);
   tiles("#cc-tiles", t);
-  $("#cc-tbl").innerHTML = table(r);
+  $("#cc-tbl").innerHTML = table(r, v.cover);
   showSens("#cc-sens", sens);
   drawCash("cc", v);
   const e = D.ers;
@@ -667,7 +689,7 @@ function drawCC(v) {
 function drawST(v) {
   const { r, tiles: t, sens } = views("st", v);
   tiles("#st-tiles", t);
-  $("#st-tbl").innerHTML = table(r) + `<p class="note" style="margin-top:10px">Cost of gain, all costs except the calves and the interest on them: ${usd(r.cog, 2)} per cwt of gain.</p>`;
+  $("#st-tbl").innerHTML = table(r, v.cover) + `<p class="note" style="margin-top:10px">Cost of gain, all costs except the calves and the interest on them: ${usd(r.cog, 2)} per cwt of gain.</p>`;
   showSens("#st-sens", sens);
   drawCash("st", v);
 }
@@ -716,7 +738,7 @@ function drawFB(v) {
   drawFBCompare(v);
   const { r, tiles: t, sens, hh, procHalf, pkg, perPkg } = views("fb", v), check = hh * v.ph;
   tiles("#fb-tiles", t);
-  $("#fb-tbl").innerHTML = table(r);
+  $("#fb-tbl").innerHTML = table(r, v.cover);
   const packer = v.w1 * P.fed_live / 100, rc = D.prices.retail_choice;
   $("#fb-buyer").innerHTML = `<table class="tbl"><tbody>
     <tr><td>Hanging weight of a half</td><td class="num">${num(hh)} lb</td></tr>
@@ -794,6 +816,12 @@ async function runExport(key, kind, btn) {
 
 const isoDate = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 const longDate = () => new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+function histColsFor(key, v) {
+  const c = HIST_COLS[key].map(x => x.slice()), op = coverOp(v);
+  if (op && (key === "cc" || key === "st")) { const i = c.findIndex(x => x[1] === "net"); c[i] = [key === "cc" ? "Return over operating costs per cow" : "Return over operating costs per head", "netOp", "usd0"]; }
+  if (op && key === "fb") { const i = c.findIndex(x => x[1] === "be"); c[i] = ["Operating cost per lb hanging", "beOp", "usd2"]; }
+  return c;
+}
 const HIST_COLS = {
   cc: [["Year", "year", "int"], ["Steer calf ($/cwt)", "price", "usd2"], ["Covers all costs ($/cwt)", "beAll", "usd2"], ["Net return per cow", "net", "usd0"]],
   st: [["Year bought", "year", "int"], ["Buy ($/cwt)", "buy", "usd2"], ["Sell ($/cwt)", "price", "usd2"], ["Net return per head", "net", "usd0"]],
@@ -831,7 +859,8 @@ function reportModel(st) {
     unitLabel: r.unit, per: r.per, tiles: vw.tiles, inputs,
     sens: { title: s.title || SENS_TITLE[key], rowLabel: s.rowLabel, colLabel: s.colLabel, cols: s.cols.map(c => c.label),
       rows: s.rows.map(row => ({ label: row.label, vals: s.cols.map(c => s.fn(row.val, c.val)), base: s.cols.map(c => row.base && c.base) })) },
-    hist, histCols: HIST_COLS[key],
+    hist, histCols: histColsFor(key, v),
+    cover: ["cc", "st", "fb", "pp"].includes(key) ? (coverOp(v) ? "Operating costs only" : "All costs, including fixed costs") : null,
     prices: PRICE_KEYS[key].filter(k => D.prices[k]).map(k => ({ ...D.prices[k], value: P[k], yours: P[k] !== D.prices[k].value })),
     asof: `Prices through ${fdate(D.generated)}; Mississippi auction prices through ${fdate(D.cattle.through)}.`,
     sources: "Mississippi auction prices: USDA-AMS and the Mississippi Department of Agriculture and Commerce. Pasture and hay: MSU Extension forage budgets. " +
@@ -863,6 +892,7 @@ async function buildXlsx(m) {
   if (REPORT.for) add(["Prepared for", REPORT.for]);
   if (REPORT.by) add(["Prepared by", REPORT.by]);
   add(["Date", longDate()]);
+  if (m.cover) add(["Costs the cattle must cover", m.cover]);
   add([m.asof]).font = { italic: true, color: { argb: "FF555555" } };
   if (REPORT.notes) { const n = add(["Notes", REPORT.notes]); n.getCell(2).alignment = { wrapText: true, vertical: "top" }; ws.mergeCells(n.number, 2, n.number, 7); }
   add([]);
@@ -994,7 +1024,7 @@ async function buildDocx(m) {
 
   const kids = [];
   kids.push(para([run(m.name, { bold: true, size: 40, color: "5D1725" })], { spacing: { after: 80 } }));
-  const meta = [REPORT.for && `Prepared for ${REPORT.for}`, REPORT.by && `Prepared by ${REPORT.by}`, longDate()].filter(Boolean).join("  ·  ");
+  const meta = [REPORT.for && `Prepared for ${REPORT.for}`, REPORT.by && `Prepared by ${REPORT.by}`, longDate(), m.cover && `Costs covered: ${m.cover.toLowerCase()}`].filter(Boolean).join("  ·  ");
   kids.push(para([run(meta, { size: 21 })]));
   kids.push(para([run(m.asof, { size: 18, color: "666666", italics: true })], { spacing: { after: 200 } }));
   if (REPORT.notes) { kids.push(h("Notes")); REPORT.notes.split(/\n+/).forEach(t => kids.push(para(t))); }
@@ -1230,18 +1260,20 @@ function drawHistory(st) {
   const yr = r => ({ label: r.year, title: String(r.year) });
   if (st.key === "cc") {
     const r = cowCalf(v);
-    pts = rows.map(x => ({ ...yr(x), v: x.net })).concat([{ label: "Now", title: "Last month's prices", v: r.net / r.N, now: true }]);
-    o = { signed: true, fmt: money, label: "Net return per cow by year" };
-    title = `Your budget in past years: net return per cow, calves sold in ${MONTHS_LONG[v.month]}`;
+    const op = coverOp(v), key = op ? "netOp" : "net", what = op ? "return over operating costs" : "net return";
+    pts = rows.map(x => ({ ...yr(x), v: x[key] })).concat([{ label: "Now", title: "Last month's prices", v: netFor(r, v) / r.N, now: true }]);
+    o = { signed: true, fmt: money, label: `${what} per cow by year` };
+    title = `Your budget in past years: ${what} per cow, calves sold in ${MONTHS_LONG[v.month]}`;
     note = `Your herd at each year's prices, calves sold in ${MONTHS_LONG[v.month]}.`;
-    cols = [["Year", x => x.year], ["Steer calf $/cwt", x => usd(x.price, 2)], ["Covers all costs $/cwt", x => usd(x.beAll, 2)], ["Net per cow", x => usd(x.net)]];
+    cols = [["Year", x => x.year], ["Steer calf $/cwt", x => usd(x.price, 2)], ["Covers all costs $/cwt", x => usd(x.beAll, 2)], [op ? "Over operating costs per cow" : "Net per cow", x => usd(x[key])]];
   } else if (st.key === "st") {
     const r = stocker(v);
-    pts = rows.map(x => ({ ...yr(x), v: x.net })).concat([{ label: "Now", title: "Last month's prices", v: r.net / r.N, now: true }]);
-    o = { signed: true, fmt: money, label: "Net return per head by year bought" };
-    title = `Your budget in past years: net return per head, bought in ${MONTHS_LONG[v.bmonth]}`;
+    const op = coverOp(v), key = op ? "netOp" : "net", what = op ? "return over operating costs" : "net return";
+    pts = rows.map(x => ({ ...yr(x), v: x[key] })).concat([{ label: "Now", title: "Last month's prices", v: netFor(r, v) / r.N, now: true }]);
+    o = { signed: true, fmt: money, label: `${what} per head by year bought` };
+    title = `Your budget in past years: ${what} per head, bought in ${MONTHS_LONG[v.bmonth]}`;
     note = `Bought and sold at each year's Mississippi auction prices for those months.`;
-    cols = [["Year", x => x.year], ["Buy $/cwt", x => usd(x.buy, 2)], ["Sell $/cwt", x => usd(x.price, 2)], ["Net per head", x => usd(x.net)]];
+    cols = [["Year", x => x.year], ["Buy $/cwt", x => usd(x.buy, 2)], ["Sell $/cwt", x => usd(x.price, 2)], [op ? "Over operating costs per head" : "Net per head", x => usd(x[key])]];
   } else if (st.key === "ro") {
     const r = retained(v);
     pts = rows.map(x => ({ ...yr(x), v: x.net, title: `Weaned ${x.year}, sold ${x.sold}` })).concat([{ label: "Now", title: "Last month's prices and futures", v: r.net / r.N, now: true }]);
@@ -1251,11 +1283,12 @@ function drawHistory(st) {
     cols = [["Weaned", x => x.year], ["Calf $/cwt", x => usd(x.wean, 2)], ["Sold", x => x.sold], ["Fed $/cwt", x => usd(x.price, 2)], ["Net per head", x => usd(x.net)]];
   } else {
     const r = freezer(v);
-    pts = rows.map(x => ({ ...yr(x), v: x.be })).concat([{ label: "Now", title: "Last month's prices", v: r.beHang, now: true }]);
+    const op = coverOp(v), key = op ? "beOp" : "be";
+    pts = rows.map(x => ({ ...yr(x), v: x[key] })).concat([{ label: "Now", title: "Last month's prices", v: op ? r.op / r.lbs : r.beHang, now: true }]);
     o = { signed: false, fmt: perLb, label: "Cost per pound of hanging weight by year", line: r.avgPrice, lineLabel: `Your average price ${usd(r.avgPrice, 2)}/lb` };
-    title = `Your budget in past years: cost per pound of hanging weight`;
+    title = `Your budget in past years: ${op ? "operating cost" : "cost"} per pound of hanging weight`;
     note = `Includes what the calf would have brought at auction. The line is your price today; past freezer beef prices aren't published.`;
-    cols = [["Year", x => x.year], ["Calf $/cwt", x => usd(x.calf, 2)], ["Cost per lb hanging", x => usd(x.be, 2)]];
+    cols = [["Year", x => x.year], ["Calf $/cwt", x => usd(x.calf, 2)], [op ? "Operating cost per lb hanging" : "Cost per lb hanging", x => usd(x[key], 2)]];
   }
   $(`#${st.key}-hist-h`).textContent = title;
   box.innerHTML = histChart(pts, o) + `<p class="note" style="margin-top:6px">${note} Some prices before 2011 are estimated (How it works).</p>
@@ -1315,6 +1348,8 @@ function about() {
   <h3>Your budget in past years</h3>
   <p>Each budget tab ends with a chart of the same budget, with your herd, weights and feeding, priced at each past year's prices, back to ${D.history ? D.history.meta.start.slice(0, 4) : "2011"}. Calf, feeder and cull cow prices are Mississippi auction prices for the months you choose (USDA-AMS and MDAC, with MSU and LMIC history). Mississippi's record has gaps (2003–2005 for every class; heifers, the heaviest feeders and cull cows through 2010); for these charts only, those months are estimated from neighboring states' auction prices (Alabama, Tennessee, Missouri, Oklahoma, Texas and Arkansas for feeders; Georgia and Kentucky for cull cows), scaled by how Mississippi's prices compared with theirs just before and after each gap. Tested on years Mississippi did report, the estimates came within about 3% on average. Retained cattle sell at the 5-area fed cattle price the month they would have finished. Costs are averaged over the months they are spent.</p>
   <p>Several input prices the budgets use today started recently, so earlier years use the closest price that goes back: fertilizer uses USDA-NASS retail prices for Mississippi's region through 2014 and BLS or World Bank prices after; Alabama and Memphis feeds use BLS indexes, Omaha corn and Illinois soybean meal; Alabama hay uses the USDA-NASS national hay price; diesel uses EIA's Gulf Coast price; and the Mississippi cattle wage before 2014 is carried back by the consumer price index. Each is scaled to the local price over the months both exist. These are estimates; the further back, the rougher.</p>
+  <h3>Operating costs or all costs</h3>
+  <p>The Cow-calf, Purchase payoff, Stocker and Freezer beef tabs have an Operating costs / All costs switch. Operating costs are what the cattle cost to run this year: feed, pasture upkeep, vet, labor, fuel, repairs, marketing, rent and interest. All costs adds the ownership (fixed) costs: depreciation on facilities, machinery and bulls, forage establishment, overhead, taxes and insurance. Use operating costs when the land, facilities and equipment are already there and would be paid for either way, such as adding cattle to spare capacity; use all costs to see whether the cattle pay for everything over the long run. The switch changes the headline numbers, the price grids, the past-years charts and the cost per cow in Purchase payoff; the budget table always shows both, with the chosen line shaded.</p>
   <h3>Cash flow</h3>
   <p>The Cow-calf and Stocker tabs can show the same budget as a cash flow: the month each sale comes in and each cost is paid, and the running balance. Its low point is about how much operating money the year or the group of cattle needs. Calf and cull sales, marketing and the operating loan's interest fall in the sale month; pasture fertilizer, winter annual seed, hay, supplement, vet work, rent and property taxes and insurance fall in the months set in the Full view; mineral, labor, fuel and repairs are spread evenly. Stocker calves, freight and processing are paid at purchase, ryegrass planting the month before, and the sale and interest at the end. Depreciation and other ownership costs that aren't paid out are left out.</p>
   <h3>Purchase payoff</h3>
@@ -1359,6 +1394,9 @@ fetch("data/prices.json").then(r => { if (!r.ok) throw new Error(r.status); retu
   }));
   document.querySelectorAll("[data-mode-for]").forEach(seg => seg.querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
     const f = { cc: CCF, st: STF }[seg.dataset.modeFor]; f.mode = b.dataset.mode; update(f);
+  })));
+  document.querySelectorAll("[data-cover-for]").forEach(seg => seg.querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
+    const f = { cc: CCF, st: STF, fb: FBF, pp: PPF }[seg.dataset.coverFor]; f.typed.cover = b.dataset.cover; update(f);
   })));
   document.querySelectorAll("[data-view-for]").forEach(seg => seg.querySelectorAll("button").forEach(b => b.addEventListener("click", () => showView(seg.dataset.viewFor, b.dataset.view))));
   document.querySelectorAll("#fb-seg button").forEach(b => b.addEventListener("click", () => { FBF.typed.sys = b.dataset.sys; update(FBF); }));

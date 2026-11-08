@@ -61,6 +61,7 @@ const SYSTEMS = { pasture: "Permanent pasture (bahia, bermuda)", ryegrass: "Ryeg
 
 const CC = [
   { g: "Herd", open: true, f: [
+    ["cover", "Costs the cattle must cover", "", "all", { show: () => false, select: [["all", "All costs, including fixed"], ["op", "Operating costs only"]] }],   // set by the switch above the results
     ["cows", "Cows", "head", 50, { simple: true, step: 1 }],
     ["bulls", "Bulls", "head", 2, { step: 1 }],
     ["wean", "Calves weaned per cow exposed", "%", 85, { simple: true, step: 1 }],
@@ -142,6 +143,7 @@ const CC = [
 
 const ST = [
   { g: "Cattle", open: true, f: [
+    ["cover", "Costs the cattle must cover", "", "all", { show: () => false, select: [["all", "All costs, including fixed"], ["op", "Operating costs only"]] }],   // set by the switch above the results
     ["head", "Head bought", "head", 60, { simple: true, step: 1 }],
     ["cls", "Steers or heifers", "", "Steers", { simple: true, select: [["Steers", "Steers"], ["Heifers", "Heifers"]] }],
     ["bmonth", "Month bought", "", 10, { simple: true, select: MONTHS_LONG.map((m, i) => [i, m]) }],   // November: ryegrass is ready; 140 days sells them in early April
@@ -264,6 +266,7 @@ function buildCog(v) {
 const isGrain = v => v.sys === "grain";
 const FB = [
   { g: "Cattle", open: true, f: [
+    ["cover", "Costs the cattle must cover", "", "all", { show: () => false, select: [["all", "All costs, including fixed"], ["op", "Operating costs only"]] }],   // set by the switch above the results
     ["head", "Head finished", "head", 4, { step: 1 }],
     ["sys", "How they're finished", "", "grain", { wide: true, show: () => false, select: [["grain", "Grain-fed"], ["grass", "Grass-fed"]] }],   // set by the switch above the tiles
     ["cls", "Steers or heifers", "", "Steers", { select: [["Steers", "Steers"], ["Heifers", "Heifers"]] }],
@@ -490,8 +493,12 @@ function stocker(v) {
   return { rows, income, op, own, total, net: income - total, N: H, sold, w1,
            beSale, cog: (total - buy - cattleInt) / gain * 100, per: H, unit: "head" };
 }
+// "Operating costs only" leaves out ownership (fixed) costs: depreciation,
+// facilities, overhead, taxes and insurance. "All costs" is the default.
+const coverOp = v => v.cover === "op";
+const netFor = (r, v) => coverOp(v) ? r.income - r.op : r.net;
 function maxBuy(v) {   // purchase price that breaks even: net is linear in it
-  const a = stocker({ ...v, p0: 0 }).net, b = stocker({ ...v, p0: 100 }).net;
+  const a = netFor(stocker({ ...v, p0: 0 }), v), b = netFor(stocker({ ...v, p0: 100 }), v);
   return a / (a - b) * 100;
 }
 
@@ -638,7 +645,7 @@ function historyRows(st) {
       const sale = by[ym(y, v0.month)], win = histWindow(by, y, v0.month, -11, 0);
       if (!sale || !sale.slide.Steers || !sale.cow || win.length < 10) continue;
       row = withHist(histAverage(win, sale), () => { const v = histValues(st); const r = cowCalf(v);
-        return { net: r.net / r.N, beOp: r.beOp, beAll: r.beAll, price: v.sp, op: r.op / r.N, income: r.income / r.N }; });
+        return { net: r.net / r.N, netOp: (r.income - r.op) / r.N, beOp: r.beOp, beAll: r.beAll, price: v.sp, op: r.op / r.N, income: r.income / r.N }; });
     } else if (st.key === "st") {        // bought in the purchase month, sold days later at that month's price
       const buy = by[ym(y, v0.bmonth)], n = Math.round(v0.days / 30.4);
       const [sy, sm] = shiftMonth(y, v0.bmonth, n), sale = by[ym(sy, sm)];
@@ -646,7 +653,7 @@ function historyRows(st) {
       if (!buy || !sale || !buy.slide[v0.cls] || !sale.slide[v0.cls]) continue;
       const w1 = v0.w0 + v0.adg * v0.days, p1 = withHist(sale, () => slide(v0.cls, w1));
       row = withHist(histAverage(win, buy), () => { const v = histValues(st, { p1 }); const r = stocker(v);
-        return { net: r.net / r.N, be: r.beSale, buy: v.p0, price: v.p1, cog: r.cog }; });
+        return { net: r.net / r.N, netOp: (r.income - r.op) / r.N, be: r.beSale, buy: v.p0, price: v.p1, cog: r.cog }; });
     } else if (st.key === "ro") {        // weaned, fed out, sold at that month's 5-area fed price
       const wean = by[ym(y, v0.wmonth)], d = roDates(v0), n = Math.round(d.dof / 30.4);
       const [sy, sm] = shiftMonth(y, v0.wmonth, n), sale = by[ym(sy, sm)];
@@ -659,7 +666,7 @@ function historyRows(st) {
       const win = histWindow(by, y, v0.smonth, 0, Math.max(n - 1, 0));
       if (!start || !start.slide[v0.cls] || win.length < Math.max(1, n - 1)) continue;
       row = withHist(histAverage(win, start), () => { const v = histValues(st); const r = freezer(v);
-        return { be: r.beHang, calf: v.p0 }; });
+        return { be: r.beHang, beOp: r.lbs > 0 ? r.op / r.lbs : NaN, calf: v.p0 }; });
     }
     if (row) out.push({ year: y, ...row });
   }
@@ -677,7 +684,7 @@ function ccBase() {
   const v = typeof CCF !== "undefined" && CCF ? CCF.v : makeForm(CC, "cc").v, r = cowCalf(v);
   const line = re => r.rows.filter(x => re.test(x.item)).reduce((t, x) => t + x.total, 0);
   const mkt = line(/^Marketing/), bdep = line(/^Bull depreciation/);
-  return { v, r, costPerCow: (r.total - mkt) / r.N, upkeep: (r.total - mkt - bdep) / r.N,
+  return { v, r, costPerCow: (r.total - mkt) / r.N, upkeep: (r.total - mkt - bdep) / r.N, opPerCow: (r.op - mkt) / r.N,
            cwt: (v.swt + v.hwt) / 2, price: (v.sp + v.hp) / 2 };
 }
 function calfPriceHist(weight, month, n = 10) {   // the average calf price in that month over the last n years
@@ -696,6 +703,7 @@ function calfPriceSrc(v) {
 }
 const PP = [
   { g: "Purchase", open: true, f: [
+    ["cover", "Costs the cattle must cover", "", "all", { show: () => false, select: [["all", "All costs, including fixed"], ["op", "Operating costs only"]] }],   // set by the switch above the results
     ["kind", "What you're buying", "", "cow", { wide: true, show: () => false, select: [["cow", "Bred cow"], ["heifer", "Bred heifer"], ["bull", "Bull"]] }],
     ["head", "Head bought", "head", v => isBull(v) ? 1 : 10, { step: 1 }],
     ["price", "Purchase price", "$/head", v => ({ cow: 2750, heifer: 3500, bull: 6500 })[v.kind], { step: 25, src: () => "Enter your price; the starting number is a placeholder" }],
@@ -716,8 +724,9 @@ const PP = [
     ["haul", "Hauling and checkoff per head sold", "$/head", 7, { step: 1 }],
   ]},
   { g: "Yearly costs", open: true, f: [
-    ["cost", "Yearly cost to keep a cow", "$/cow", () => ccBase().costPerCow, { step: 10, show: isFemale, src: () => "Your Cow-calf budget's costs per cow, without marketing" }],
-    ["bcost", "Yearly cost to keep the bull", "$/bull", () => 1.4 * ccBase().upkeep, { step: 10, show: isBull, src: () => "1.4 times your Cow-calf costs per cow, as that budget counts a bull" }],
+    ["cost", "Yearly cost to keep a cow", "$/cow", v => coverOp(v) ? ccBase().opPerCow : ccBase().costPerCow, { step: 10, show: isFemale,
+      src: v => `Your Cow-calf budget's ${coverOp(v) ? "operating costs" : "costs"} per cow, without marketing` }],
+    ["bcost", "Yearly cost to keep the bull", "$/bull", v => 1.4 * (coverOp(v) ? ccBase().opPerCow : ccBase().upkeep), { step: 10, show: isBull, src: () => "1.4 times your Cow-calf costs per cow, as that budget counts a bull" }],
   ]},
   { g: "When culled", f: [
     ["cullwt", "Weight when culled", "lb", v => isBull(v) ? ccBase().v.bwt : ccBase().v.cwt_, { step: 25 }],
