@@ -416,7 +416,7 @@ footer .legal { display: grid; gap: 8px; margin-top: 18px; }
   </div>
 </div></footer>
 
-<script src="budget.js?v=fd3f659ded"></script>
+<script src="budget.js?v=62513438e5"></script>
 <script>
 "use strict";
 // the page: forms, tables, charts and tabs; the math is in budget.js
@@ -573,7 +573,7 @@ function update(st, skip) {
   fill(st); sync(st, skip);
   ({ cc: drawCC, st: drawST, ro: drawRO, fb: drawFB, pp: drawPP })[st.key](st.v);
   drawHistory(st);
-  if (st.key === "cc" && PPF) update(PPF);          // the payoff tab starts from the cow-calf budget
+  if (st.key === "cc") { if (PPF) update(PPF); if (ROF) update(ROF); }   // payoff and retained ownership follow the cow-calf budget
 }
 // What each budget shows up top and its grid of other prices: one source for
 // the page and the Excel and Word exports. A tile is [shown, label, kind,

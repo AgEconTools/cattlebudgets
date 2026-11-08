@@ -144,7 +144,7 @@ const ST = [
   { g: "Cattle", open: true, f: [
     ["head", "Head bought", "head", 60, { simple: true, step: 1 }],
     ["cls", "Steers or heifers", "", "Steers", { simple: true, select: [["Steers", "Steers"], ["Heifers", "Heifers"]] }],
-    ["bmonth", "Month bought", "", () => nowMonth(), { simple: true, select: MONTHS_LONG.map((m, i) => [i, m]) }],
+    ["bmonth", "Month bought", "", 10, { simple: true, select: MONTHS_LONG.map((m, i) => [i, m]) }],   // November: ryegrass is ready; 140 days sells them in early April
     ["season", "Adjust prices for the usual seasonal pattern", "", 1, { check: true }],
     ["w0", "Purchase weight", "lb", 450, { simple: true, step: 10 }],
     ["p0", "Purchase price", "$/cwt", v => slide(v.cls, v.w0) * (v.season ? seasonAdj(v.cls, v.w0, v.bmonth) : 1), { simple: true, step: 1, src: v => calfSrc(v.cls, v.w0, v, v.bmonth) }],
@@ -198,7 +198,7 @@ const RO = [
   { g: "Calves", open: true, f: [
     ["head", "Calves retained", "head", 40, { step: 1 }],
     ["cls", "Steers or heifers", "", "Steers", { select: [["Steers", "Steers"], ["Heifers", "Heifers"]] }],
-    ["wmonth", "Month calves are weaned", "", () => nowMonth(), { select: MONTH_OPTS }],
+    ["wmonth", "Month calves are weaned", "", () => typeof CCF !== "undefined" && CCF ? CCF.v.month : 9, { select: MONTH_OPTS, src: () => "Follows the sale month on your Cow-calf budget" }],
     ["season", "Adjust the weaning price for the usual seasonal pattern", "", 1, { check: true }],
     ["ww", "Weaning weight", "lb", v => v.cls === "Steers" ? 550 : 520, { step: 10 }],
     ["wp", "Calf price at weaning", "$/cwt", v => slide(v.cls, v.ww) * (v.season ? seasonAdj(v.cls, v.ww, v.wmonth) : 1), { step: 1, src: v => calfSrc(v.cls, v.ww, v, v.wmonth) }],
@@ -267,7 +267,7 @@ const FB = [
     ["head", "Head finished", "head", 4, { step: 1 }],
     ["sys", "How they're finished", "", "grain", { wide: true, show: () => false, select: [["grain", "Grain-fed"], ["grass", "Grass-fed"]] }],   // set by the switch above the tiles
     ["cls", "Steers or heifers", "", "Steers", { select: [["Steers", "Steers"], ["Heifers", "Heifers"]] }],
-    ["smonth", "Month finishing starts", "", () => nowMonth(), { select: MONTH_OPTS }],
+    ["smonth", "Month finishing starts", "", 10, { select: MONTH_OPTS }],   // November: a 650-lb calf finishes on grain around May
     ["season", "Adjust the calf price for the usual seasonal pattern", "", 1, { check: true }],
     ["w0", "Starting weight", "lb", v => isGrain(v) ? 650 : 550, { step: 10 }],
     ["p0", "Calf value at the start", "$/cwt", v => slide(v.cls, v.w0) * (v.season ? seasonAdj(v.cls, v.w0, v.smonth) : 1), { step: 1, src: v => calfSrc(v.cls, v.w0, v, v.smonth) }],
