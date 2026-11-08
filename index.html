@@ -5,16 +5,16 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Beef Cattle Budgets</title>
-<meta name="description" content="Cow-calf, purchase payoff, stocker, retained ownership and freezer beef budgets for Mississippi beef producers, filled in with this week's prices.">
+<meta name="description" content="Cow-calf, purchase payoff, stocker, retained ownership and freezer beef budgets for Mississippi beef producers, filled in with last month's average prices.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Mississippi State University Extension">
 <meta property="og:title" content="Beef Cattle Budgets">
-<meta property="og:description" content="Cow-calf, purchase payoff, stocker, retained ownership and freezer beef budgets for Mississippi beef producers, filled in with this week's prices.">
+<meta property="og:description" content="Cow-calf, purchase payoff, stocker, retained ownership and freezer beef budgets for Mississippi beef producers, filled in with last month's average prices.">
 <meta property="og:url" content="https://agecontools.github.io/cattlebudgets/">
 <meta property="og:image" content="https://agecontools.github.io/cattlebudgets/og-image.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Beef Cattle Budgets: cow-calf, purchase, stocker, retained ownership and freezer beef budgets with this week's prices. Mississippi State University Extension.">
+<meta property="og:image:alt" content="Beef Cattle Budgets: cow-calf, purchase, stocker, retained ownership and freezer beef budgets with last month's average prices. Mississippi State University Extension.">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="canonical" href="https://agecontools.github.io/cattlebudgets/">
 <link rel="icon" href="favicon.ico" sizes="32x32">
@@ -64,6 +64,8 @@ a { color: var(--link); }
 .kicker { font-size: 12px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; opacity: .8; margin: 0 0 4px; }
 h1 { font: 700 clamp(28px, 5vw, 40px)/1.08 var(--display); margin: 0; text-wrap: balance; }
 .asof { margin: 6px 0 0; font-size: 14px; opacity: .9; max-width: 80ch; }
+.asof a { color: inherit; }
+.stale { margin: 10px 0 0; padding: 8px 12px; border-radius: 8px; background: var(--warn-bg); color: var(--warn-ink); font-size: 14px; font-weight: 600; max-width: 80ch; }
 
 .tabs { position: sticky; top: 0; z-index: 5; background: var(--bg); border-bottom: 1px solid var(--rule); }
 .tabs .wrap { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; padding-block: 8px; }
@@ -206,7 +208,7 @@ footer .legal { display: grid; gap: 8px; margin-top: 18px; }
 <header class="mast"><div class="wrap">
   <p class="kicker">Mississippi State University Extension &middot; Beta</p>
   <h1>Beef cattle budgets</h1>
-  <p class="asof" id="asof">Loading this week's prices&hellip;</p>
+  <p class="asof" id="asof">Loading prices&hellip;</p>
 </div></header>
 <nav class="tabs" aria-label="Sections"><div class="wrap" role="tablist">
   <button class="tab" role="tab" data-tab="cc" aria-selected="true">Cow-calf</button>
@@ -223,14 +225,14 @@ footer .legal { display: grid; gap: 8px; margin-top: 18px; }
   <section class="panel" id="p-cc" hidden>
     <div>
       <h2>Cow-calf budget</h2>
-      <p class="sub">Yearly costs and returns for a cow herd that sells weaned calves and raises its own replacement heifers. Prices fill in from this week's markets; change any number to match your farm.</p>
+      <p class="sub">Yearly costs and returns for a cow herd that sells weaned calves and raises its own replacement heifers. Prices start from last month's Mississippi averages; change any number to match your farm.</p>
     </div>
     <div class="modebar">
       <div class="seg" role="radiogroup" aria-label="How much detail" data-mode-for="cc">
         <button type="button" role="radio" data-mode="simple">Simple</button>
         <button type="button" role="radio" data-mode="full">Full</button>
       </div>
-      <p class="note">Simple asks what most producers know and fills in the rest with typical numbers and this week's prices. Full shows every cost and price.</p>
+      <p class="note">Simple asks what most producers know and fills in the rest with typical numbers and last month's average prices. Full shows every cost and price.</p>
       <button type="button" class="btn top-reset" data-reset="cc">Start over</button>
     </div>
     <div class="tiles" id="cc-tiles"></div>
@@ -251,14 +253,14 @@ footer .legal { display: grid; gap: 8px; margin-top: 18px; }
   <section class="panel" id="p-st" hidden>
     <div>
       <h2>Stocker budget</h2>
-      <p class="sub">Costs and returns for one group of calves bought, grown on pasture and sold as feeders. Purchase and sale prices start from this week's Mississippi auction prices for the weights you enter.</p>
+      <p class="sub">Costs and returns for one group of calves bought, grown on pasture and sold as feeders. Purchase and sale prices start from last month's Mississippi auction averages for the weights you enter.</p>
     </div>
     <div class="modebar">
       <div class="seg" role="radiogroup" aria-label="How much detail" data-mode-for="st">
         <button type="button" role="radio" data-mode="simple">Simple</button>
         <button type="button" role="radio" data-mode="full">Full</button>
       </div>
-      <p class="note">Simple asks what most producers know and fills in the rest with typical numbers and this week's prices. Full shows every cost and price.</p>
+      <p class="note">Simple asks what most producers know and fills in the rest with typical numbers and last month's average prices. Full shows every cost and price.</p>
       <button type="button" class="btn top-reset" data-reset="st">Start over</button>
     </div>
     <div class="tiles" id="st-tiles"></div>
@@ -395,7 +397,7 @@ footer .legal { display: grid; gap: 8px; margin-top: 18px; }
   </div>
 </div></footer>
 
-<script src="budget.js?v=28256f324b"></script>
+<script src="budget.js?v=216b152702"></script>
 <script>
 "use strict";
 // the page: forms, tables, charts and tabs; the math is in budget.js
@@ -425,7 +427,7 @@ function priceGroup(st, g) {
   det.className = "grp"; det.dataset.prices = "1";
   det.innerHTML = `<summary>Market prices <small>shared by every budget</small></summary><div class="fields"></div>`;
   const wrap = $(".fields", det);
-  wrap.insertAdjacentHTML("beforeend", `<p class="note f wide">This week's prices behind the budget. A price you change here changes in every budget on this page. Sources and dates are under How it works.</p>`);
+  wrap.insertAdjacentHTML("beforeend", `<p class="note f wide">Last month's average prices behind the budget. A price you change here changes in every budget on this page. Sources and dates are under How it works.</p>`);
   g.prices.filter(k => D.prices[k]).forEach(k => {
     const p = D.prices[k], el = document.createElement("div"), iid = `${st.key}-p-${k}`;
     el.className = "f"; el.dataset.pk = k;
@@ -437,7 +439,7 @@ function priceGroup(st, g) {
   });
   if (g.forage) { const c = document.createElement("div"); c.className = "calc"; c.dataset.forage = "1"; c._forage = g.forage; wrap.appendChild(c); }
   const rb = document.createElement("div"); rb.className = "f wide";
-  rb.innerHTML = `<div class="btns"><button type="button" class="btn">Use this week's prices again</button></div>`;
+  rb.innerHTML = `<div class="btns"><button type="button" class="btn">Use last month's prices again</button></div>`;
   $("button", rb).addEventListener("click", () => { Object.entries(D.prices).forEach(([k, p]) => P[k] = p.value); refreshAll(); });
   wrap.appendChild(rb);
   return det;
@@ -514,7 +516,7 @@ function assumed(st) {   // the inputs Simple hides, in plain words, by group
   return st.spec.filter(g => g.f).map(g => {
     const items = g.f.filter(f => f[1] !== "calc" && !(f[4] || {}).simple && !((f[4] || {}).show && !f[4].show(st.v))).map(f => fmtField(f, st.v));
     return items.length ? `<p><b>${g.g}.</b> ${items.join("; ")}.</p>` : "";
-  }).join("") + `<p>Fertilizer, diesel and feed are at this week's prices (Full view, Market prices).</p>`;
+  }).join("") + `<p>Fertilizer, diesel and feed are at last month's average prices (Full view, Market prices).</p>`;
 }
 // ---------- drawing ----------
 function table(res) {
@@ -702,7 +704,7 @@ function drawFB(v) {
     <tr class="tot"><td>Buyer's total</td><td class="num">${usd(check + procHalf)}</td></tr>
     <tr><td>Packaged beef taken home<small>${num(v.yield)}% of hanging weight</small></td><td class="num">${num(pkg)} lb</td></tr>
     <tr class="net"><td>Cost per lb of packaged beef</td><td class="num">${usd(perPkg, 2)}</td></tr></tbody></table>
-    <p class="note" style="margin-top:10px">Choice beef averaged ${usd(P.retail_choice, 2)}/lb at the grocery store in ${rc.when} (USDA-ERS, all cuts). A buyer gets ground beef, roasts and steaks in one purchase, so compare with that average, not steak prices. Sold to a packer at this week's 5-area price of ${usd(P.fed_live, 2)}/cwt, a ${num(v.w1)}-lb steer would bring about ${usd(packer)}; your beef sales come to ${usd(r.income / Math.max(r.sold, 1e-9))} per animal sold.</p>`;
+    <p class="note" style="margin-top:10px">Choice beef averaged ${usd(P.retail_choice, 2)}/lb at the grocery store in ${rc.when} (USDA-ERS, all cuts). A buyer gets ground beef, roasts and steaks in one purchase, so compare with that average, not steak prices. Sold to a packer at last month's 5-area average of ${usd(P.fed_live, 2)}/cwt, a ${num(v.w1)}-lb steer would bring about ${usd(packer)}; your beef sales come to ${usd(r.income / Math.max(r.sold, 1e-9))} per animal sold.</p>`;
   showSens("#fb-sens", sens);
 }
 
@@ -1067,7 +1069,7 @@ function drawPP(v) {
 
 // ---------- your budget in past years ----------
 // The same budget, with the user's own herd, weights and feeding, priced at
-// each past year's prices (historyRows in budget.js), next to this week's.
+// each past year's prices (historyRows in budget.js), next to last month's.
 function niceStep(x) { const p = Math.pow(10, Math.floor(Math.log10(x))); return [1, 2, 2.5, 5, 10].map(m => m * p).find(s => s >= x); }
 function histChart(pts, o) {
   const W = 640, H = 230, L = 58, R = 12, T = 10, B = 26;
@@ -1120,28 +1122,28 @@ function drawHistory(st) {
   const yr = r => ({ label: r.year, title: String(r.year) });
   if (st.key === "cc") {
     const r = cowCalf(v);
-    pts = rows.map(x => ({ ...yr(x), v: x.net })).concat([{ label: "Now", title: "This week's prices", v: r.net / r.N, now: true }]);
+    pts = rows.map(x => ({ ...yr(x), v: x.net })).concat([{ label: "Now", title: "Last month's prices", v: r.net / r.N, now: true }]);
     o = { signed: true, fmt: money, label: "Net return per cow by year" };
     title = `Your budget in past years: net return per cow, calves sold in ${MONTHS_LONG[v.month]}`;
     note = `Your herd at each year's prices, calves sold in ${MONTHS_LONG[v.month]}.`;
     cols = [["Year", x => x.year], ["Steer calf $/cwt", x => usd(x.price, 2)], ["Covers all costs $/cwt", x => usd(x.beAll, 2)], ["Net per cow", x => usd(x.net)]];
   } else if (st.key === "st") {
     const r = stocker(v);
-    pts = rows.map(x => ({ ...yr(x), v: x.net })).concat([{ label: "Now", title: "This week's prices", v: r.net / r.N, now: true }]);
+    pts = rows.map(x => ({ ...yr(x), v: x.net })).concat([{ label: "Now", title: "Last month's prices", v: r.net / r.N, now: true }]);
     o = { signed: true, fmt: money, label: "Net return per head by year bought" };
     title = `Your budget in past years: net return per head, bought in ${MONTHS_LONG[v.bmonth]}`;
     note = `Bought and sold at each year's Mississippi auction prices for those months.`;
     cols = [["Year", x => x.year], ["Buy $/cwt", x => usd(x.buy, 2)], ["Sell $/cwt", x => usd(x.price, 2)], ["Net per head", x => usd(x.net)]];
   } else if (st.key === "ro") {
     const r = retained(v);
-    pts = rows.map(x => ({ ...yr(x), v: x.net, title: `Weaned ${x.year}, sold ${x.sold}` })).concat([{ label: "Now", title: "This week's prices and futures", v: r.net / r.N, now: true }]);
+    pts = rows.map(x => ({ ...yr(x), v: x.net, title: `Weaned ${x.year}, sold ${x.sold}` })).concat([{ label: "Now", title: "Last month's prices and futures", v: r.net / r.N, now: true }]);
     o = { signed: true, fmt: money, label: "Retaining vs selling at weaning by year weaned" };
     title = `Your budget in past years: retaining vs. selling at weaning, by year weaned`;
     note = `Fed cattle sold at the 5-area cash price the month they would have finished. "Now" uses futures.`;
     cols = [["Weaned", x => x.year], ["Calf $/cwt", x => usd(x.wean, 2)], ["Sold", x => x.sold], ["Fed $/cwt", x => usd(x.price, 2)], ["Net per head", x => usd(x.net)]];
   } else {
     const r = freezer(v);
-    pts = rows.map(x => ({ ...yr(x), v: x.be })).concat([{ label: "Now", title: "This week's prices", v: r.beHang, now: true }]);
+    pts = rows.map(x => ({ ...yr(x), v: x.be })).concat([{ label: "Now", title: "Last month's prices", v: r.beHang, now: true }]);
     o = { signed: false, fmt: perLb, label: "Cost per pound of hanging weight by year", line: r.avgPrice, lineLabel: `Your average price ${usd(r.avgPrice, 2)}/lb` };
     title = `Your budget in past years: cost per pound of hanging weight`;
     note = `Includes what the calf would have brought at auction. The line is your price today; past freezer beef prices aren't published.`;
@@ -1159,11 +1161,11 @@ function drawPrices() {
     const p = D.prices[k], chg = P[k] !== p.value;
     const parts = p.parts ? " " + p.parts.map(x => `${x.area} ${usd(x.value, 2)}`).join(", ") + "." : "";
     const val = p.unit.startsWith("$") ? usd(P[k], 2) + p.unit.slice(1) : num(P[k], 2) + p.unit;
-    return `<tr class="${chg ? "chg" : ""}"><td>${p.label}</td><td class="num">${val}${chg ? `<small>your price; this week ${p.unit.startsWith("$") ? usd(p.value, 2) : num(p.value, 2)}</small>` : ""}</td>
+    return `<tr class="${chg ? "chg" : ""}"><td>${p.label}</td><td class="num">${val}${chg ? `<small>your price; last month ${p.unit.startsWith("$") ? usd(p.value, 2) : num(p.value, 2)}</small>` : ""}</td>
       <td class="srcc"><b>${p.source}</b>, ${pdate(p)}. ${p.note || ""}${parts}</td></tr>`;
   }).join("");
   $("#pr-tbl").innerHTML = `<table class="tbl prices"><thead><tr><th>Price</th><th>Value</th><th style="text-align:left">Source and date</th></tr></thead><tbody>${rows}
-    <tr><td>Calf, feeder and cull cattle prices</td><td></td><td class="srcc"><b>USDA-AMS, Mississippi Department of Agriculture and Commerce</b>, Mississippi auctions ${cattleWeeks()}. Prices for each weight come from a smooth price-by-weight curve fit to the sales; the seasonal pattern is the 5-year average (${D.cattle.season.years[0]}–${D.cattle.season.years.at(-1)}). Change them on each budget.</td></tr>
+    <tr><td>Calf, feeder and cull cattle prices</td><td></td><td class="srcc"><b>USDA-AMS, Mississippi Department of Agriculture and Commerce</b>, Mississippi auctions ${cattleWeeks()}. Each weight's price is read between the 100-lb class averages; the seasonal pattern is the 5-year average, trend removed (${D.cattle.season.years[0]}–${D.cattle.season.years.at(-1)}). Change them on each budget.</td></tr>
     <tr><td>Live cattle futures and basis</td><td></td><td class="srcc"><b>CME Group, USDA-AMS</b>. Settles on ${fdate(D.fed.futures[0].date)}: ${D.fed.futures.map(f => `${MONTHS[f.month]} ${f.year} ${usd(f.settle, 2)}`).join(", ")}. The basis for each month is the ${D.fed.basis_years[0]}–${D.fed.basis_years[1]} average of the 5-area negotiated live steer price minus the nearby futures settle. Change them on the Retained ownership budget.</td></tr>
     <tr><td>Chemical, repair and machinery costs</td><td></td><td class="srcc"><b>BLS</b> producer price indexes through ${fmonth(D.ppi.ag_chemicals.date)}: pesticides ${pct(D.ppi.ag_chemicals.ratio)}, machinery parts ${pct(D.ppi.machinery_parts.ratio)}, farm machinery ${pct(D.ppi.ag_machinery.ratio)} from their 2025 averages.</td></tr>
   </tbody></table>`;
@@ -1187,11 +1189,11 @@ function drawForage() {
 }
 function about() {
   $("#ab-body").innerHTML = `
-  <p>These budgets start from this week's prices so a producer can see what a cow or a set of stocker calves costs today, then change any number to fit the farm. Nothing typed here is saved or sent anywhere.</p>
+  <p>These budgets start from last month's average prices so a producer can see what a cow or a set of stocker calves costs now, then change any number to fit the farm. Prices update once a month; for this week's auction prices, see <a href="https://agecontools.github.io/cattleprices/">Cattle Auction Prices</a>. Nothing typed here is saved or sent anywhere.</p>
   <h3>Where the numbers come from</h3>
   <ul>
-    <li><b>Cattle prices:</b> Mississippi auction prices for the last two weeks (USDA-AMS and the Mississippi Department of Agriculture and Commerce), read off a price-by-weight curve so any weight gets a price. When the sale month differs from this month, the price can be moved by the usual 5-year seasonal pattern for that weight; that assumes the market as a whole doesn't change, so enter your own expected price if you have one.</li>
-    <li><b>Pasture and hay:</b> quantities from MSU Extension's 2027 forage planning budgets, priced at this week's fertilizer (USDA-AMS North Carolina and Oklahoma reports, the nearest regular ones), farm diesel and labor, with chemicals and machinery carried forward from 2025 by BLS producer price indexes.</li>
+    <li><b>Cattle prices:</b> Mississippi auction prices averaged for the latest complete month (USDA-AMS and the Mississippi Department of Agriculture and Commerce), by 100-lb weight class; a weight between classes gets a price between them. When the sale month differs from this month, the price can be moved by the usual 5-year seasonal pattern for that weight; that assumes the market as a whole doesn't change, so enter your own expected price if you have one.</li>
+    <li><b>Pasture and hay:</b> quantities from MSU Extension's 2027 forage planning budgets, priced at last month's average fertilizer (USDA-AMS North Carolina and Oklahoma reports, the nearest regular ones), farm diesel and labor, with chemicals and machinery carried forward from 2025 by BLS producer price indexes.</li>
     <li><b>Feed and hay prices:</b> USDA-AMS wholesale feedstuff prices for Alabama and Memphis, Mississippi Delta corn bids, and the Alabama hay report. Wholesale prices leave out delivery and handling, which you add.</li>
     <li><b>Labor:</b> the average wage of Mississippi beef cattle ranch employees (BLS Quarterly Census of Employment and Wages).</li>
     <li><b>Land:</b> USDA-NASS pasture cash rent for Mississippi or your county.</li>
@@ -1199,7 +1201,7 @@ function about() {
     <li><b>Vet and overhead:</b> USDA-ERS cow-calf costs for its Mississippi Portal region, with vet costs carried forward by the BLS price index for animal drugs.</li>
     <li><b>Fed cattle prices:</b> the retained ownership sale price starts from CME live cattle futures for the contract in or after the sale month, plus that month's average basis (the 5-area negotiated live steer price minus nearby futures, ${D.fed.basis_years[0]}–${D.fed.basis_years[1]}). Heifers use the same price; enter your own if your feedlot expects a discount.</li>
     <li><b>Feedlot feed:</b> the ration cost starts from the Omaha corn bid (USDA-AMS), the nearest regular price in feedlot country, converted to dry matter.</li>
-    <li><b>Freezer beef:</b> no public series reports freezer beef prices or custom processing fees, so the prices per pound of hanging weight and the processor's charges are starting guesses. For comparison, the page shows what packers paid for fed steers this week (USDA-AMS 5-area report) and the average grocery store price of Choice beef (USDA-ERS).</li>
+    <li><b>Freezer beef:</b> no public series reports freezer beef prices or custom processing fees, so the prices per pound of hanging weight and the processor's charges are starting guesses. For comparison, the page shows what packers paid for fed steers last month (USDA-AMS 5-area report) and the average grocery store price of Choice beef (USDA-ERS).</li>
     <li><b>Starting guesses:</b> herd performance, feeding rates, mineral price, labor hours, facilities, stocker and feedlot health costs, yardage, trucking to the feedlot, and freezer beef prices and processing have no public price series. They are round starting numbers; replace them with your own.</li>
   </ul>
   <h3>Your budget in past years</h3>
@@ -1228,11 +1230,13 @@ fetch("data/prices.json").then(r => { if (!r.ok) throw new Error(r.status); retu
   D = data;
   Object.entries(D.prices).forEach(([k, p]) => P[k] = p.value);
   $("#load").remove();
-  $("#asof").textContent = `Built with prices through ${fdate(D.generated)}; Mississippi auction prices through ${fdate(D.cattle.through)}.`;
+  $("#asof").innerHTML = `${D.month_label} average prices for Mississippi, updated monthly. For this week's auction prices, see <a href="https://agecontools.github.io/cattleprices/">Cattle Auction Prices</a>.`;
+  if (Date.now() - new Date(D.generated) > 40 * 864e5)   // the monthly update missed a month
+    $("#asof").insertAdjacentHTML("afterend", `<p class="stale" role="status">These are ${D.month_label} prices; the monthly update is late. Enter your own prices, or check back soon.</p>`);
   {   // footer: prices, page version and build time in Central time; copyright year from the build date
     const bt = new Date(D.generated), ok = !isNaN(bt), ct = o => bt.toLocaleString("en-US", { timeZone: "America/Chicago", ...o });
     const hm = ok ? ct({ hour: "numeric", minute: "2-digit" }).replace(/\s?([AP])M$/, (_, x) => ` ${x.toLowerCase()}.m.`) : "";
-    $("#foot-gen").textContent = `Prices through ${fdate(D.generated)}; Mississippi auction prices through ${fdate(D.cattle.through)}. Page ${D.build ? `version ${D.build}, ` : ""}built ${ok ? ct({ month: "short", day: "numeric", year: "numeric" }) : D.generated.slice(0, 10)}${hm ? `, ${hm} CT` : ""}.`;
+    $("#foot-gen").textContent = `Prices are ${D.month_label} averages. Page ${D.build ? `version ${D.build}, ` : ""}built ${ok ? ct({ month: "short", day: "numeric", year: "numeric" }) : D.generated.slice(0, 10)}${hm ? `, ${hm} CT` : ""}.`;
     $("#foot-year").textContent = ok ? ct({ year: "numeric" }) : D.generated.slice(0, 4);
   }
   CCF = makeForm(CC, "cc"); STF = makeForm(ST, "st"); ROF = makeForm(RO, "ro"); FBF = makeForm(FB, "fb");

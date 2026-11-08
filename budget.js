@@ -208,7 +208,7 @@ const RO = [
   { g: "Sale price", open: true, f: [
     ["fut", "Live cattle futures for the sale month", "$/cwt", v => roFut(v).settle, { step: .25, src: v => futSrc(v) }],
     ["basis", "Basis (cash minus futures)", "$/cwt", v => D.fed.basis[roDates(v).sm].basis, { step: .25, src: v => basisSrc(v) }],
-    ["sp", "Expected sale price", "$/cwt", v => v.fut + v.basis, { step: .25, src: () => `Futures plus basis. This week's 5-area cash price for fed steers: ${usd(P.fed_live, 2)}/cwt (${pdate(D.prices.fed_live)})` }],
+    ["sp", "Expected sale price", "$/cwt", v => v.fut + v.basis, { step: .25, src: () => `Futures plus basis. The 5-area cash price for fed steers averaged ${usd(P.fed_live, 2)}/cwt in ${pdate(D.prices.fed_live)}` }],
     ["lrp", "Price insurance (LRP premium)", "$/head", 0, { step: 1, src: () => "Your share of the premium if you buy Livestock Risk Protection" }],
     ["fees", "Checkoff and sale fees", "$/head", 3, { step: .5, src: () => "$1 beef checkoff plus brand inspection and other fees; a starting guess" }],
   ]},
@@ -329,7 +329,7 @@ RO.push({ g: "Market prices", prices: ["corn_omaha", "fed_live"] });
 FB.push({ g: "Market prices", prices: ["corn", "soyhulls", "cgf", "csm", ...FERT_FUEL, "fed_live", "fed_dressed", "retail_choice"], forage: v => ["pasture", ...(v.wacres > 0 ? [v.wsys] : [])] });
 const FNAME = { pasture: "Permanent pasture", hay: "Hay ground", ryegrass: "No-till ryegrass", overseed: "Overseeded ryegrass" };
 
-function cattleWeeks() { const [a, b] = D.cattle.slide_dates; return `${fdate(a).replace(/, \d{4}/, "")}–${fdate(b)}`; }
+function cattleWeeks() { return `${D.month_label} average`; }   // the month the page's prices cover
 function calfSrc(cls, wt, v, month) {
   const m = month == null ? v.month : month;
   const base = `Mississippi auctions, ${cls.toLowerCase()} at ${num(wt)} lb: ${usd(slide(cls, wt), 2)}/cwt, ${cattleWeeks()}`;
