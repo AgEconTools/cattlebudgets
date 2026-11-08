@@ -71,7 +71,7 @@ const CC = [
   { g: "Calf and cull prices", open: true, f: [
     ["swt", "Steer calf sale weight", "lb", 540, { simple: true, step: 10 }],
     ["hwt", "Heifer calf sale weight", "lb", 510, { simple: true, step: 10 }],
-    ["month", "Month calves sell", "", () => nowMonth(), { simple: true, select: MONTHS_LONG.map((m, i) => [i, m]) }],
+    ["month", "Month calves sell", "", 9, { simple: true, select: MONTHS_LONG.map((m, i) => [i, m]) }],   // October: a typical fall sale, so the cash flow year starts in November
     ["season", "Adjust prices for the usual seasonal pattern", "", 1, { check: true }],
     ["sp", "Steer calf price", "$/cwt", v => slide("Steers", v.swt) * (v.season ? seasonAdj("Steers", v.swt, v.month) : 1), { simple: true, step: 1, src: v => calfSrc("Steers", v.swt, v) }],
     ["hp", "Heifer calf price", "$/cwt", v => slide("Heifers", v.hwt) * (v.season ? seasonAdj("Heifers", v.hwt, v.month) : 1), { simple: true, step: 1, src: v => calfSrc("Heifers", v.hwt, v) }],
