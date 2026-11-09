@@ -433,7 +433,7 @@ footer .legal { display: grid; gap: 8px; margin-top: 18px; }
   </div>
 </div></footer>
 
-<script src="budget.js?v=b9a7d65d48"></script>
+<script src="budget.js?v=34e0ac025c"></script>
 <script>
 "use strict";
 // the page: forms, tables, charts and tabs; the math is in budget.js
@@ -643,8 +643,8 @@ function views(key, v) {
   }
   if (key === "st") {
     const r = stocker(v), mb = maxBuy(v), d = [-30, -15, 0, 15, 30], op = coverOp(v);
-    const n = netFor(r, v), what = op ? "return over operating costs" : "net return after all costs", c = v.comm / 100;
-    const be = op ? (r.op - r.income * c) / (1 - c) / (r.sold * r.w1) * 100 : r.beSale;
+    const n = netFor(r, v), what = op ? "return over operating costs" : "net return after all costs";
+    const be = op ? r.beOp : r.beSale;
     return { r, tiles: [
       [usd(n / r.N), `${what} per head`, sign(n), n / r.N, "usd0"],
       [usd(n), `${what} for ${num(r.N)} head`, sign(n), n, "usd0"],
@@ -817,6 +817,7 @@ async function runExport(key, kind, btn) {
 const isoDate = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 const longDate = () => new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 function histColsFor(key, v) {
+  if (!HIST_COLS[key]) return [];      // purchase payoff has no past-years table
   const c = HIST_COLS[key].map(x => x.slice()), op = coverOp(v);
   if (op && (key === "cc" || key === "st")) { const i = c.findIndex(x => x[1] === "net"); c[i] = [key === "cc" ? "Return over operating costs per cow" : "Return over operating costs per head", "netOp", "usd0"]; }
   if (op && key === "fb") { const i = c.findIndex(x => x[1] === "be"); c[i] = ["Operating cost per lb hanging", "beOp", "usd2"]; }

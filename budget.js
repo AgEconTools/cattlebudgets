@@ -445,9 +445,10 @@ function cowCalf(v) {
 
   const calfLb = steers * v.swt + heifers * v.hwt;
   const other = rows.filter(r => /Cull/.test(r.item)).reduce((t, r) => t + r.total, 0);
-  const c = v.comm / 100;
-  const noComm = x => x - income * c;                      // costs without the commission, which moves with price
-  const be = cost => calfLb > 0 ? ((noComm(cost)) / (1 - c) - other) / calfLb * 100 : NaN;
+  // The commission and the operating interest charged on it move with the calf
+  // price; everything else in the costs doesn't.
+  const c = v.comm / 100 * (1 + v.rate / 100 * v.imonths / 12);
+  const be = cost => calfLb > 0 ? ((cost - income * c) / (1 - c) - other) / calfLb * 100 : NaN;
   return { rows, income, op, own, total: op + own, net: income - op - own, N, calfLb, sold,
            beOp: be(op), beAll: be(op + own), per: N, unit: "cow", tons, units };
 }
@@ -487,11 +488,12 @@ function stocker(v) {
   add(F, "Facilities and equipment", H, "head", v.fac, H * v.fac);
   add(F, "Overhead and insurance", H, "head", v.ovh, H * v.ovh);
   const own = rows.filter(r => r.sec === F).reduce((s, r) => s + r.total, 0);
-  const total = op + own, c = v.comm / 100, saleLb = sold * w1;
-  const beSale = (total - income * c) / (1 - c) / saleLb * 100;
+  // the commission, and the interest on it, move with the sale price
+  const total = op + own, c = v.comm / 100 * (1 + v.rate / 100 * t / 2), saleLb = sold * w1;
+  const be = cost => (cost - income * c) / (1 - c) / saleLb * 100;
   const gain = saleLb - H * v.w0;
   return { rows, income, op, own, total, net: income - total, N: H, sold, w1,
-           beSale, cog: (total - buy - cattleInt) / gain * 100, per: H, unit: "head" };
+           beSale: be(total), beOp: be(op), cog: (total - buy - cattleInt) / gain * 100, per: H, unit: "head" };
 }
 // "Operating costs only" leaves out ownership (fixed) costs: depreciation,
 // facilities, overhead, taxes and insurance. "All costs" is the default.
