@@ -119,7 +119,7 @@ const CC = [
     ["comm", "Sale commission", "% of sales", 3, { step: .25 }],
     ["haul", "Hauling to the sale", "$/head", 6, { step: 1 }],
     ["imonths", "Months operating money is borrowed", "months", 6, { step: 1 }],
-    ["rate", "Operating interest rate", "%", () => P.op_rate, { step: .05, src: () => priceSrc("op_rate") }],
+    ["rate", "Interest rate", "%", () => P.op_rate, { step: .05, src: () => rateSrc() }],
   ]},
   { g: "Ownership costs", f: [
     ["fac", "Pens, chute, fence, water, trailer per cow", "$/year", 60, { step: 5, src: () => "Yearly depreciation and interest; a starting guess" }],
@@ -180,8 +180,7 @@ const ST = [
     ["gal", "Truck and feeding fuel per head", "gal", 3, { step: .5, src: () => `Diesel at ${usd(P.diesel, 2)}/gal` }],
     ["comm", "Sale commission", "% of sales", 3, { step: .25 }],
     ["haul", "Hauling to the sale", "$/head", 6, { step: 1 }],
-    ["crate", "Interest rate on cattle", "%", () => P.cattle_rate, { step: .05, src: () => priceSrc("cattle_rate") }],
-    ["rate", "Interest rate on other costs", "%", () => P.op_rate, { step: .05, src: () => priceSrc("op_rate") }],
+    ["rate", "Interest rate", "%", () => P.op_rate, { step: .05, src: () => rateSrc() }],
   ]},
   { g: "Ownership costs", f: [
     ["fac", "Pens, chute, fence, water, trailer", "$/head", 12, { step: 1, src: () => "Depreciation and interest for the time owned; a starting guess" }],
@@ -230,8 +229,7 @@ const RO = [
     ["fees", "Checkoff and sale fees", "$/head", 3, { step: .5, src: () => "$1 beef checkoff plus brand inspection and other fees; a starting guess" }],
   ]},
   { g: "Interest", f: [
-    ["crate", "Interest rate on the calves", "%", () => P.cattle_rate, { step: .05, src: () => priceSrc("cattle_rate") }],
-    ["rate", "Interest rate on feedlot bills", "%", () => P.op_rate, { step: .05, src: () => priceSrc("op_rate") }],
+    ["rate", "Interest rate", "%", () => P.op_rate, { step: .05, src: () => rateSrc() }],
   ]},
 ];
 const cornDM = () => P.corn_omaha / 56 * 2000 / 0.85;          // $/ton of dry matter (85% dry)
@@ -302,9 +300,10 @@ const FB = [
     ["kill", "Harvest (kill) fee", "$/head", 100, { step: 5, src: () => "A starting guess; ask your processor" }],
     ["cw", "Cut, wrap and freeze", "$/lb hanging", 1.1, { step: .05, src: () => "A starting guess; ask your processor" }],
     ["yield", "Packaged beef", "% of hanging", 62, { step: 1, src: () => "What's left after bone, fat, trim and drying during aging; used for buyers' cost per pound" }],
-    ["shh", "Sold as halves", "% of the beef", 70, { step: 5 }],
+    ["shw", "Sold as wholes", "% of the beef", 10, { step: 5 }],
+    ["shh", "Sold as halves", "% of the beef", 60, { step: 5 }],
     ["shq", "Sold as quarters", "% of the beef", 30, { step: 5 }],
-    ["_wh", "calc", v => { const s = shares(v); return s.over ? "Halves and quarters add to more than 100%, so they're scaled down." : `${num(s.w)}% sold as wholes.`; }],
+    ["_wh", "calc", v => { const s = shares(v); return s.raw === 100 ? "Wholes, halves and quarters add to 100%." : `These add to ${num(s.raw)}%, so each is scaled to its share of 100%.`; }],
     ["ph", "Price, halves", "$/lb hanging", v => (isGrain(v) ? 5.00 : 6.00) + procAdd(v), { step: .05, src: v => `A starting guess${v.pay === "you" ? " plus processing" : ""}; no public price series. Packers paid ${usd(P.fed_dressed / 100, 2)}/lb hanging weight for fed steers (5-area, week ending ${pdate(D.prices.fed_dressed)})` }],
     ["pq", "Price, quarters", "$/lb hanging", v => (isGrain(v) ? 5.50 : 6.50) + procAdd(v), { step: .05, src: v => `A starting guess${v.pay === "you" ? " plus processing" : ""}` }],
     ["pw", "Price, wholes", "$/lb hanging", v => (isGrain(v) ? 4.75 : 5.75) + procAdd(v), { step: .05, src: v => `A starting guess${v.pay === "you" ? " plus processing" : ""}` }],
@@ -316,8 +315,7 @@ const FB = [
     ["gal", "Truck and feeding fuel per head", "gal", 6, { step: .5, src: () => `Diesel at ${usd(P.diesel, 2)}/gal` }],
     ["haulp", "Hauling to the processor", "$/head", 25, { step: 1, src: () => "A starting guess" }],
     ["mktg", "Advertising, insurance and permits", "$/head", 35, { step: 5, src: () => "A starting guess: website or ads, liability insurance, any permits" }],
-    ["crate", "Interest rate on cattle", "%", () => P.cattle_rate, { step: .05, src: () => priceSrc("cattle_rate") }],
-    ["rate", "Interest rate on other costs", "%", () => P.op_rate, { step: .05, src: () => priceSrc("op_rate") }],
+    ["rate", "Interest rate", "%", () => P.op_rate, { step: .05, src: () => rateSrc() }],
     ["chrent", "Charge rent on pasture", "", 1, { check: true }],
     ["rent", "Pasture rent", "$/acre/year", () => P.rent, { step: 1, show: v => v.chrent, src: () => priceSrc("rent") }],
   ]},
@@ -334,9 +332,10 @@ function mix(v) {
   const price = sum > 0 ? parts.reduce((t, [k, s]) => t + P[k] * s, 0) / sum : 0;
   return { sum, price, parts: parts.map(([k]) => `${FEEDS.find(f => f[0] === k)[1].toLowerCase()} ${usd(P[k])}`).join(", ") };
 }
-function shares(v) {
-  const h = Math.max(0, v.shh), q = Math.max(0, v.shq), w = Math.max(0, 100 - h - q), sum = h + q + w;
-  return { h: h / sum * 100, q: q / sum * 100, w: w / sum * 100, over: h + q > 100 };
+function shares(v) {     // percent of the beef sold as halves, quarters and wholes, scaled to 100
+  const h = Math.max(0, v.shh), q = Math.max(0, v.shq), w = Math.max(0, v.shw ?? 0), raw = h + q + w;
+  if (raw <= 0) return { h: 100, q: 0, w: 0, raw };
+  return { h: h / raw * 100, q: q / raw * 100, w: w / raw * 100, raw };
 }
 
 // Market prices shown in each budget's Full view; shared by every budget.
@@ -366,6 +365,7 @@ function priceSrc(k) {
   if (P[k] !== p.value) return "Your price (Market prices, in the Full view)";
   return `${SHORT[k] ? SHORT[k] + ": " : ""}${p.source}, ${pdate(p)}`;
 }
+const rateSrc = () => `${priceSrc("op_rate")}. Feeder cattle loans average about the same (${num(P.cattle_rate, 2)}%); enter your own lender's rate`;
 const feedSrc = k => `${FEEDS.find(f => f[0] === k)[1]} ${usd(P[k], 2)}/ton wholesale (${priceSrc(k)}); add delivery and handling`;
 
 // ---------- state ----------
@@ -477,8 +477,8 @@ function stocker(v) {
   add(O, "Marketing", sold, "head", mkt / sold, mkt, `${num(v.comm, 2)}% commission, hauling and the $1 beef checkoff`);
   if (v.sys !== "custom" && v.chrent) add(O, "Land rent", acres, "acres", v.rent * v.days / 365, acres * v.rent * v.days / 365, `${usd(v.rent)}/acre/year for ${num(v.days)} days`);
   const t = v.days / 365;
-  const cattleInt = buy * v.crate / 100 * t;
-  add(O, "Interest on cattle", buy, "$", v.crate, cattleInt, `${num(v.crate, 2)}% for ${num(v.days)} days`);
+  const cattleInt = buy * v.rate / 100 * t;
+  add(O, "Interest on cattle", buy, "$", v.rate, cattleInt, `${num(v.rate, 2)}% for ${num(v.days)} days`);
   const otherOp = rows.filter(r => r.sec === O && !/Calves bought|Interest/.test(r.item)).reduce((s, r) => s + r.total, 0);
   const opInt = otherOp * v.rate / 100 * t / 2;
   add(O, "Interest on other costs", otherOp, "$", v.rate, opInt, "Half the costs borrowed for the whole time");
@@ -524,8 +524,8 @@ function retained(v) {
   const feedlot = rows.slice(first).reduce((s, x) => s + x.total, 0);
   if (v.lrp) add(O, "Price insurance (LRP)", H, "head", v.lrp, H * v.lrp);
   add(O, "Checkoff and sale fees", sold, "head", v.fees, sold * v.fees);
-  const cBase = calves + H * v.freight, cInt = cBase * v.crate / 100 * t;
-  add(O, "Interest on the calves", cBase, "$", v.crate, cInt, `${num(v.crate, 2)}% for ${num(r.dof)} days, on the calves and trucking`);
+  const cBase = calves + H * v.freight, cInt = cBase * v.rate / 100 * t;
+  add(O, "Interest on the calves", cBase, "$", v.rate, cInt, `${num(v.rate, 2)}% for ${num(r.dof)} days, on the calves and trucking`);
   const fInt = feedlot * v.rate / 100 * t / 2;
   add(O, "Interest on feedlot bills", feedlot, "$", v.rate, fInt, "Billed monthly, so about half is borrowed for the whole time");
   const op = rows.filter(x => x.sec === O).reduce((s, x) => s + x.total, 0);
@@ -571,8 +571,8 @@ function freezer(v) {
   add(O, "Advertising, insurance and permits", H, "head", v.mktg, H * v.mktg);
   const rentAc = pAc + (v.wsys === "ryegrass" ? wAc : 0);
   if (v.chrent && rentAc > 0) add(O, "Land rent", rentAc, "acres", v.rent * pShare, rentAc * v.rent * pShare, `${usd(v.rent)}/acre/year for ${num(days)} days`);
-  const cInt = cattle * v.crate / 100 * t;
-  add(O, "Interest on cattle", cattle, "$", v.crate, cInt, `${num(v.crate, 2)}% for ${num(days)} days`);
+  const cInt = cattle * v.rate / 100 * t;
+  add(O, "Interest on cattle", cattle, "$", v.rate, cInt, `${num(v.rate, 2)}% for ${num(days)} days`);
   const other = rows.filter(r => r.sec === O && !/Calves at|Interest|Processing|to the processor/.test(r.item)).reduce((x, r) => x + r.total, 0);
   add(O, "Interest on other costs", other, "$", v.rate, other * v.rate / 100 * t / 2, "Half the feeding costs borrowed for the whole time; processing and hauling are paid at the end");
   const op = rows.filter(r => r.sec === O).reduce((x, r) => x + r.total, 0);
@@ -595,9 +595,9 @@ function freezer(v) {
 // months they are spent. Each run returns one row per year.
 const HIST_MARKET = {
   cc: ["sp", "hp", "cp", "bp", "hayp", "vet", "wage", "rate", "rent", "ovh"],
-  st: ["p0", "p1", "hayp", "wage", "crate", "rate", "rent"],
-  ro: ["wp", "ration", "fut", "basis", "sp", "cogq", "crate", "rate"],
-  fb: ["p0", "hayp", "wage", "crate", "rate", "rent", "ph", "pq", "pw"],
+  st: ["p0", "p1", "hayp", "wage", "rate", "rent"],
+  ro: ["wp", "ration", "fut", "basis", "sp", "cogq", "rate"],
+  fb: ["p0", "hayp", "wage", "rate", "rent", "ph", "pq", "pw"],
 };
 const ym = (y, m) => `${y}-${String(m + 1).padStart(2, "0")}`;
 const shiftMonth = (y, m, n) => { const t = y * 12 + m + n; return [Math.floor(t / 12), ((t % 12) + 12) % 12]; };
@@ -711,7 +711,7 @@ const PP = [
     ["years", "Years in your herd", "years", v => ({ cow: 5, heifer: 8, bull: 4 })[v.kind], { step: 1,
       src: v => ({ cow: "A bred cow bought at 4 to 6 years old, kept to about 10", heifer: "Calves at 2, kept to about 10", bull: "Years of service" })[v.kind] }],
     ["death", "Death loss per year", "%", v => isBull(v) ? 3 : 1.5, { step: .5, src: v => isBull(v) ? "Injury and death; a starting guess" : "" }],
-    ["rate", "Interest rate (your cost of money)", "%", () => P.cattle_rate, { step: .05, src: () => priceSrc("cattle_rate") }],
+    ["rate", "Interest rate (your cost of money)", "%", () => P.op_rate, { step: .05, src: () => rateSrc() }],
   ]},
   { g: "Calves", open: true, f: [
     ["cows", "Cows he breeds each year", "cows", 25, { step: 1, show: isBull }],

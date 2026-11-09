@@ -433,7 +433,7 @@ footer .legal { display: grid; gap: 8px; margin-top: 18px; }
   </div>
 </div></footer>
 
-<script src="budget.js?v=654150ca8c"></script>
+<script src="budget.js?v=b9a7d65d48"></script>
 <script>
 "use strict";
 // the page: forms, tables, charts and tabs; the math is in budget.js
@@ -830,10 +830,10 @@ const HIST_COLS = {
 };
 const PRICE_KEYS = {
   cc: ["hay_market", "soyhulls", "cottonseed", "cgf", "corn", "csm", "urea", "dap", "potash", "diesel", "wage", "rent", "op_rate", "vet_cow", "overhead_cow"],
-  st: ["hay_market", "soyhulls", "cottonseed", "cgf", "corn", "csm", "urea", "dap", "potash", "diesel", "wage", "rent", "op_rate", "cattle_rate"],
-  ro: ["corn_omaha", "fed_live", "op_rate", "cattle_rate"],
-  fb: ["corn", "soyhulls", "cgf", "csm", "hay_market", "urea", "dap", "potash", "diesel", "wage", "rent", "op_rate", "cattle_rate", "fed_live", "fed_dressed", "retail_choice"],
-  pp: ["cattle_rate"],
+  st: ["hay_market", "soyhulls", "cottonseed", "cgf", "corn", "csm", "urea", "dap", "potash", "diesel", "wage", "rent", "op_rate"],
+  ro: ["corn_omaha", "fed_live", "op_rate"],
+  fb: ["corn", "soyhulls", "cgf", "csm", "hay_market", "urea", "dap", "potash", "diesel", "wage", "rent", "op_rate", "fed_live", "fed_dressed", "retail_choice"],
+  pp: ["op_rate"],
 };
 function inputRow(st, f) {
   const [id, label, unit, def, o = {}] = f, x = st.v[id];
