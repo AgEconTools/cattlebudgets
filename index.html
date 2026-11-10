@@ -1411,7 +1411,10 @@ const tabFor = h => { h = String(h || "").toLowerCase(); if (h === "pr") return 
 function showTab(t) {
   document.querySelectorAll(".tab").forEach(b => b.setAttribute("aria-selected", String(b.dataset.tab === t)));
   TABS.forEach(k => { $(`#p-${k}`).hidden = k !== t; });
-  const cur = $(`.tab[data-tab="${t}"]`); if (cur && cur.scrollIntoView) cur.scrollIntoView({ block: "nearest", inline: "center" });
+  // center the tab in the tab bar by scrolling the bar alone: scrollIntoView also pans the whole page sideways in
+  // iPhone Safari when the bar can't scroll far enough (the last tab), leaving a blank strip (11/2026)
+  const cur = $(`.tab[data-tab="${t}"]`), bar = cur && cur.parentElement;
+  if (bar) bar.scrollLeft += cur.getBoundingClientRect().left - bar.getBoundingClientRect().left - (bar.clientWidth - cur.offsetWidth) / 2;
   try { history.replaceState(null, "", location.pathname + location.search + "#" + (ADDR[t] || t)); } catch (e) {}
 }
 fetch("data/prices.json").then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).then(data => {
