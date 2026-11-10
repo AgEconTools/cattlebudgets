@@ -136,7 +136,8 @@ details.grp > summary small { font-weight: 500; color: var(--muted); font-size: 
 .tbl td small { display: block; color: var(--muted); font-size: 12.5px; font-weight: 400; }
 .tbl .neg { color: var(--neg); }
 .scroll { overflow-x: auto; }
-@media (max-width: 560px) { .tbl .hide-sm { display: none; } .tbl { font-size: 14px; } .tbl th, .tbl td { padding: 6px 4px; } }
+.tbl .show-sm { display: none; }
+@media (max-width: 560px) { .tbl .hide-sm { display: none; } .tbl .show-sm { display: block; } .tbl { font-size: 14px; } .tbl th, .tbl td { padding: 6px 4px; } }
 
 .grid-sens { border-collapse: collapse; font-size: 14px; width: 100%; }
 .grid-sens th, .grid-sens td { padding: 7px 6px; text-align: right; border: 1px solid var(--rule); font-variant-numeric: tabular-nums; }
@@ -425,14 +426,14 @@ footer .legal { display: grid; gap: 8px; margin-top: 18px; }
     <div class="card" id="ab-body"></div>
     <div class="card">
       <h3>Prices and sources</h3>
-      <p class="note" style="margin-bottom:10px">Every price the budgets start from, where it comes from and how current it is. Change them in each budget's Full view, under Market prices.</p>
+      <p class="note" style="margin-bottom:10px">Every price the budgets start from. Change them in each budget's Full view, under Market prices.</p>
       <div class="scroll" id="pr-tbl"></div>
       <p class="note" style="margin-top:10px">This week's Mississippi auction prices by class and weight, barn by barn:
         <a href="../cattleprices/?state=ms#week">Cattle Auction Prices</a>.</p>
     </div>
     <div class="card">
       <h3>Pasture and hay costs per acre</h3>
-      <p class="note" style="margin-bottom:10px">MSU Extension's 2027 forage budgets give the fertilizer, seed, chemical, fuel, labor and machinery each practice takes. Here, each item is priced at the prices above: fertilizer, diesel and labor at today's prices, chemicals and machinery carried forward from 2025 with BLS producer price indexes, and other items at MSU's 2025 prices.</p>
+      <p class="note" style="margin-bottom:10px">Quantities from MSU Extension's 2027 forage budgets, priced at the prices above. Chemicals and machinery are carried forward from 2025 by BLS price indexes; other items stay at MSU's 2025 prices.</p>
       <div class="fields" style="padding:0 0 12px"><div class="f"><label for="fsys">Practice</label><div class="in"><select id="fsys"></select></div></div></div>
       <div class="scroll" id="forage-tbl"></div>
       <p class="note" style="margin-top:10px">Dry weather raises hay needs. Drought in your county this week, and whether
@@ -1340,19 +1341,23 @@ function drawHistory(st) {
 
 // ---------- prices tab ----------
 const PRICE_ORDER = ["hay_market", "hay_nass", "soyhulls", "cottonseed", "cgf", "corn", "csm", "urea", "dap", "potash", "diesel", "wage", "rent", "op_rate", "cattle_rate", "prime", "vet_cow", "overhead_cow", "fed_live", "fed_dressed", "corn_omaha", "retail_choice"];
+// the table's short "where" for each price (the full notes stay in the Excel export)
+const WHERE = { ...SHORT, hay_nass: "Marketing-year average", prime: "Monthly average", rent: "", corn_omaha: "" };
 function drawPrices() {
+  // the source sits under the price name on a phone, in its own column on wider screens
+  const row = (label, val, src, cls = "") => `<tr class="${cls}"><td>${label}<small class="show-sm">${src}</small></td><td class="num">${val}</td><td class="srcc hide-sm">${src}</td></tr>`;
   const rows = PRICE_ORDER.filter(k => D.prices[k]).map(k => {
     const p = D.prices[k], chg = P[k] !== p.value;
-    const parts = p.parts ? " " + p.parts.map(x => `${x.area} ${usd(x.value, 2)}`).join(", ") + "." : "";
     const val = p.unit.startsWith("$") ? usd(P[k], 2) + p.unit.slice(1) : num(P[k], 2) + p.unit;
-    return `<tr class="${chg ? "chg" : ""}"><td>${p.label}</td><td class="num">${val}${chg ? `<small>your price; last month ${p.unit.startsWith("$") ? usd(p.value, 2) : num(p.value, 2)}</small>` : ""}</td>
-      <td class="srcc"><b>${p.source}</b>, ${pdate(p)}. ${p.note || ""}${parts}</td></tr>`;
+    return row(p.label, val + (chg ? `<small>your price; last month ${p.unit.startsWith("$") ? usd(p.value, 2) : num(p.value, 2)}</small>` : ""),
+      `${WHERE[k] ? WHERE[k] + ", " : ""}<b>${p.source}</b>, ${pdate(p)}`, chg ? "chg" : "");
   }).join("");
-  $("#pr-tbl").innerHTML = `<table class="tbl prices"><thead><tr><th>Price</th><th>Value</th><th style="text-align:left">Source and date</th></tr></thead><tbody>${rows}
-    <tr><td>Calf, feeder and cull cattle prices</td><td></td><td class="srcc"><b>USDA-AMS, Mississippi Department of Agriculture and Commerce</b>, Mississippi auctions ${cattleWeeks()}. Each weight's price is read between the 100-lb class averages; the seasonal pattern is the 5-year average, trend removed (${D.cattle.season.years[0]}–${D.cattle.season.years.at(-1)}). Change them on each budget.</td></tr>
-    <tr><td>Live cattle futures and basis</td><td></td><td class="srcc"><b>CME Group, USDA-AMS</b>. Settles on ${fdate(D.fed.futures[0].date)}: ${D.fed.futures.map(f => `${MONTHS[f.month]} ${f.year} ${usd(f.settle, 2)}`).join(", ")}. The basis for each month is the ${D.fed.basis_years[0]}–${D.fed.basis_years[1]} average of the 5-area negotiated live steer price minus the nearby futures settle. Change them on the Retained ownership budget.</td></tr>
-    <tr><td>Chemical, repair and machinery costs</td><td></td><td class="srcc"><b>BLS</b> producer price indexes through ${fmonth(D.ppi.ag_chemicals.date)}: pesticides ${pct(D.ppi.ag_chemicals.ratio)}, machinery parts ${pct(D.ppi.machinery_parts.ratio)}, farm machinery ${pct(D.ppi.ag_machinery.ratio)} from their 2025 averages.</td></tr>
-  </tbody></table>`;
+  $("#pr-tbl").innerHTML = `<table class="tbl prices"><thead><tr><th>Price</th><th>Value</th><th class="hide-sm" style="text-align:left">Source</th></tr></thead><tbody>${rows}
+    ${row("Calf, feeder and cull cattle prices", "", `Mississippi auctions, <b>USDA-AMS, MDAC</b>, ${cattleWeeks()}`)}
+    ${row("Live cattle futures and basis", "", `Settles on ${fdate(D.fed.futures[0].date)}; basis ${D.fed.basis_years[0]}–${D.fed.basis_years[1]} average, <b>CME Group, USDA-AMS</b>`)}
+    ${row("Chemical, repair and machinery costs", "", `<b>BLS</b> price indexes, ${fmonth(D.ppi.ag_chemicals.date)}: pesticides ${pct(D.ppi.ag_chemicals.ratio)}, machinery parts ${pct(D.ppi.machinery_parts.ratio)}, farm machinery ${pct(D.ppi.ag_machinery.ratio)} from 2025`)}
+  </tbody></table>
+  <p class="note" style="margin-top:8px">Mississippi has no fertilizer, diesel or hay report, so those use the nearest states'. Wholesale feed prices leave out delivery and handling. Labor is the average weekly wage divided by 40 hours.</p>`;
 }
 const pct = r => `${r >= 1 ? "+" : "−"}${num(Math.abs(r - 1) * 100, 1)}%`;
 function drawForage() {
@@ -1373,33 +1378,25 @@ function drawForage() {
 }
 function about() {
   $("#ab-body").innerHTML = `
-  <p>These budgets start from last month's average prices so a producer can see what a cow or a set of stocker calves costs now, then change any number to fit the farm. Prices update once a month; for this week's auction prices, see <a href="https://agecontools.github.io/cattleprices/">Cattle Auction Prices</a>. Nothing typed here is saved or sent anywhere.</p>
+  <p>These budgets start from last month's average prices; change any number to fit your farm. Prices update once a month. Nothing typed here is saved or sent anywhere.</p>
   <h3>Where the numbers come from</h3>
   <ul>
-    <li><b>Cattle prices:</b> Mississippi auction prices averaged for the latest complete month (USDA-AMS and the Mississippi Department of Agriculture and Commerce), by 100-lb weight class; a weight between classes gets a price between them. When the sale month differs from this month, the price can be moved by the usual 5-year seasonal pattern for that weight; that assumes the market as a whole doesn't change, so enter your own expected price if you have one.</li>
-    <li><b>Pasture and hay:</b> quantities from MSU Extension's 2027 forage planning budgets, priced at last month's average fertilizer (USDA-AMS North Carolina and Oklahoma reports, the nearest regular ones), farm diesel and labor, with chemicals and machinery carried forward from 2025 by BLS producer price indexes.</li>
-    <li><b>Feed and hay prices:</b> USDA-AMS wholesale feedstuff prices for Alabama and Memphis, Mississippi Delta corn bids, and the Alabama hay report. Wholesale prices leave out delivery and handling, which you add.</li>
-    <li><b>Labor:</b> the average wage of Mississippi beef cattle ranch employees (BLS Quarterly Census of Employment and Wages).</li>
-    <li><b>Land:</b> USDA-NASS pasture cash rent for Mississippi or your county.</li>
-    <li><b>Interest:</b> average rates on new operating and feeder cattle loans at Eleventh District banks (Federal Reserve Bank of Dallas), the nearest regular survey of farm loan rates.</li>
-    <li><b>Vet and overhead:</b> USDA-ERS cow-calf costs for its Mississippi Portal region, with vet costs carried forward by the BLS price index for animal drugs.</li>
-    <li><b>Fed cattle prices:</b> the retained ownership sale price starts from CME live cattle futures for the contract in or after the sale month, plus that month's average basis (the 5-area negotiated live steer price minus nearby futures, ${D.fed.basis_years[0]}–${D.fed.basis_years[1]}). Heifers use the same price; enter your own if your feedlot expects a discount.</li>
-    <li><b>Feedlot feed:</b> the ration cost starts from the Omaha corn bid (USDA-AMS), the nearest regular price in feedlot country, converted to dry matter.</li>
-    <li><b>Freezer beef:</b> no public series reports freezer beef prices or custom processing fees, so the prices per pound of hanging weight and the processor's charges are starting guesses. For comparison, the page shows what packers paid for fed steers last month (USDA-AMS 5-area report) and the average grocery store price of Choice beef (USDA-ERS).</li>
-    <li><b>Starting guesses:</b> herd performance, feeding rates, mineral price, labor hours, facilities, stocker and feedlot health costs, yardage, trucking to the feedlot, and freezer beef prices and processing have no public price series. They are round starting numbers; replace them with your own.</li>
+    <li><b>Cattle prices:</b> last month's Mississippi auction averages (USDA-AMS and the Mississippi Department of Agriculture and Commerce) by 100-lb weight class; a weight in between gets a price in between. For a sale in another month, the price moves by the usual 5-year seasonal pattern, which assumes the market as a whole doesn't change. Enter your own price if you expect a different one.</li>
+    <li><b>Fed cattle:</b> CME live cattle futures for the contract in or after the sale month, plus that month's average basis (5-area negotiated live steer price minus nearby futures). Heifers use the same price.</li>
+    <li><b>Pasture and hay:</b> MSU Extension's 2027 forage budgets, priced at the prices below.</li>
+    <li><b>Feed, fertilizer, fuel, labor, rent, interest, vet and overhead:</b> the table below.</li>
+    <li><b>Starting guesses:</b> herd performance, feeding rates, mineral price, labor hours, facilities, health costs, yardage, trucking, and freezer beef prices and processing have no public price series. Replace them with your own.</li>
   </ul>
   <h3>Your budget in past years</h3>
-  <p>Each budget tab ends with a chart of the same budget, with your herd, weights and feeding, priced at each past year's prices, back to ${D.history ? D.history.meta.start.slice(0, 4) : "2011"}. Calf, feeder and cull cow prices are Mississippi auction prices for the months you choose (USDA-AMS and MDAC, with MSU and LMIC history). Mississippi's record has gaps (2003–2005 for every class; heifers, the heaviest feeders and cull cows through 2010); for these charts only, those months are estimated from neighboring states' auction prices (Alabama, Tennessee, Missouri, Oklahoma, Texas and Arkansas for feeders; Georgia and Kentucky for cull cows), scaled by how Mississippi's prices compared with theirs just before and after each gap. Tested on years Mississippi did report, the estimates came within about 3% on average. Retained cattle sell at the 5-area fed cattle price the month they would have finished. Costs are averaged over the months they are spent.</p>
-  <p>Several input prices the budgets use today started recently, so earlier years use the closest price that goes back: fertilizer uses USDA-NASS retail prices for Mississippi's region through 2014 and BLS or World Bank prices after; Alabama and Memphis feeds use BLS indexes, Omaha corn and Illinois soybean meal; Alabama hay uses the USDA-NASS Mississippi and Alabama hay price; diesel uses EIA's Gulf Coast price; and the Mississippi cattle wage before 2014 is carried back by the consumer price index. Each is scaled to the local price over the months both exist. These are estimates; the further back, the rougher.</p>
+  <p>Each budget tab ends with a chart of the same budget, with your herd, weights and feeding, priced at each past year's prices back to ${D.history ? D.history.meta.start.slice(0, 4) : "2011"}. Where Mississippi's auction record has gaps (2003–2005 for every class; heifers, the heaviest feeders and cull cows through 2010), those charts estimate the price from neighboring states' auctions, scaled to Mississippi's; tested on months Mississippi did report, the estimates came within about 3%. Input prices that started recently (fertilizer, local feed and hay, diesel, wages) are carried back with the closest older price. The further back, the rougher.</p>
   <h3>Operating costs or all costs</h3>
-  <p>The Cow-calf, Purchase payoff, Stocker and Freezer beef tabs have an Operating costs / All costs switch. Operating costs are what the cattle cost to run this year: feed, pasture upkeep, vet, labor, fuel, repairs, marketing, rent and interest. All costs adds the ownership (fixed) costs: depreciation on facilities, machinery and bulls, forage establishment, overhead, taxes and insurance. Use operating costs when the land, facilities and equipment are already there and would be paid for either way, such as adding cattle to spare capacity; use all costs to see whether the cattle pay for everything over the long run. The switch changes the headline numbers, the price grids, the past-years charts and the cost per cow in Purchase payoff; the budget table always shows both, with the chosen line shaded.</p>
+  <p>Operating costs are what you spend during the year: feed, pasture upkeep, vet, labor, fuel, repairs, marketing, rent and interest on operating money. All costs adds ownership costs: depreciation on facilities, machinery and bulls, forage establishment, overhead, taxes and insurance. Use operating costs when the land and equipment would be paid for either way, such as adding cattle to spare capacity; use all costs to see whether the cattle pay for everything over the long run. Net return is what is left for your own time, management and any land you own and don't charge rent for. In the cow-calf budget, a bull counts as 1.4 cows and a replacement heifer as 0.7 for pasture, hay and mineral.</p>
   <h3>Cash flow</h3>
-  <p>The Cow-calf and Stocker tabs can show the same budget as a cash flow: the month each sale comes in and each cost is paid, and the running balance. Its low point is about how much operating money the year or the group of cattle needs. Calf and cull sales, marketing and the operating loan's interest fall in the sale month; pasture fertilizer, winter annual seed, hay, supplement, vet work, rent and property taxes and insurance fall in the months set in the Full view; mineral, labor, fuel and repairs are spread evenly. Stocker calves, freight and processing are paid at purchase, ryegrass planting the month before, and the sale and interest at the end. Depreciation and other ownership costs that aren't paid out are left out.</p>
+  <p>Cow-calf and Stocker can show the budget by month, with a running balance; its low point is about how much operating money you need. Set the months for fertilizer, seed, hay, supplement, vet work, rent, and taxes and insurance in the Full view. Mineral, labor, fuel and repairs are spread evenly, and costs that aren't paid out, such as depreciation, are left out.</p>
   <h3>Purchase payoff</h3>
-  <p>The Purchase payoff tab follows a bred cow, bred heifer or bull bought now through its years in your herd. Each year it adds the calves weaned (or, for a bull, the extra weaning weight from better genetics) and subtracts the yearly cost of keeping the animal, with death loss taken as an expected share each year, then adds its cull value at the end. Calf weights, calf prices, the weaning rate and yearly costs start from your Cow-calf budget, so change those there or here. Net present value discounts each year at your interest rate: a positive value means the purchase pays for itself and earns more than your cost of money. The most you can pay is the price that makes it exactly zero. Today's calf prices are high by history; the calf price note shows the 10-year average so you can test a lower price.</p>
-  <h3>What the budgets include</h3>
-  <p>Operating costs are what you spend during the year, including interest on the money borrowed to pay them. Ownership costs are the yearly cost of machinery, forage establishment, facilities and bulls whether or not you borrow for them. Net return is what is left to pay for your own time, management and any land you own and don't charge rent for. In the cow-calf budget, bulls count as 1.4 cows and replacement heifers as 0.7 of a cow for pasture, hay and mineral.</p>
-  <p>The retained ownership and freezer beef budgets charge your own calves at what they would have brought at a Mississippi auction, so their net return is what feeding them out earns over selling them as calves. Freezer beef sold by the whole, half or quarter is sold before harvest: each buyer owns a share of the live animal and the processor works for the buyer under the custom-exempt rules, so the packages are stamped "Not for sale." Selling beef by the package needs a USDA- or state-inspected processor.</p>
+  <p>Follows a bred cow, bred heifer or bull bought now through its years in your herd: each year's calves (for a bull, the extra weaning weight) minus the cost of keeping it and expected death loss, plus its cull value at the end. Calf prices, weights, weaning rate and costs start from your Cow-calf budget. Net present value discounts each year at your interest rate; the most you can pay is the price that makes it zero. Today's calf prices are high by history, so test a lower one (the calf price note gives the 10-year average).</p>
+  <h3>Retained ownership and freezer beef</h3>
+  <p>Both charge your own calves at what they would bring at a Mississippi auction, so their net return is what feeding them out earns over selling them as calves. Freezer beef sold by the whole, half or quarter is sold before harvest, under the custom-exempt rules (packages stamped "Not for sale"); selling beef by the package needs a USDA- or state-inspected processor.</p>
   <p class="note">Prices last updated ${fdate(D.generated)}. Mississippi State University Extension.</p>`;
 }
 
