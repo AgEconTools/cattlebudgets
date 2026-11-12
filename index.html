@@ -152,6 +152,19 @@ details.grp > summary small { font-weight: 500; color: var(--muted); font-size: 
 .modebar { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
 .modebar .note { max-width: 60ch; }
 .modebar .top-reset { margin-left: auto; }
+.segwrap { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.seglab { font-size: 13.5px; font-weight: 600; color: var(--ink-2); }
+.tile.pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 4px 12px; align-content: start; }
+.tile.pair > .pt { grid-column: 1 / -1; margin: 0 0 2px; color: var(--ink-2); font-weight: 600; }
+.fc-grid { display: grid; gap: 16px; }
+.ws-state { font-size: 13px; color: var(--muted); margin: 2px 0 10px; }
+.ws-state.changed { color: var(--warn-ink); }
+.ws-est { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: 14.5px; }
+.ws-est input, .tbl td.on input { width: 18px; height: 18px; accent-color: var(--accent); }
+.tbl td.on { width: 28px; }
+.ws-tbl th:nth-child(2), .ws-tbl td:nth-child(2) { text-align: left; }
+.tbl tr.off td:not(.on) { color: var(--muted); }
+.tbl input.wsq { width: 5.5em; text-align: right; border: 1px solid var(--field-rule); border-radius: 6px; padding: 4px 6px; background: var(--field); font: inherit; font-variant-numeric: tabular-nums; color: inherit; }
 .assume-body { padding: 0 16px 6px; }
 .assume-body p { margin: 0 0 8px; font-size: 13.5px; color: var(--ink-2); max-width: 78ch; }
 .hchart { width: 100%; height: auto; display: block; }
@@ -216,7 +229,7 @@ footer .legal { display: grid; gap: 8px; margin-top: 18px; }
 :root[data-theme="dark"] .legal .logo-light { display: none; }
 :root[data-theme="dark"] .legal .logo-dark { display: block; }
 /* Links between the MSU Extension tools (11/2026; ADDRESS_STANDARD.md): "More cattle tools" and
-   "Share this view" in the masthead, and the other tools at the top of the footer. Each project keeps
+   "Share this view" (here "Share this page", 11/2026) in the masthead, and the other tools at the top of the footer. Each project keeps
    its own copy; change all five together. */
 .asof.tools-line { margin-top: 6px; font-size: 13px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; }
 .share-btn { all: unset; cursor: pointer; text-decoration: underline; color: inherit; font: inherit; }
@@ -248,7 +261,7 @@ footer .legal { display: grid; gap: 8px; margin-top: 18px; }
   <p class="kicker">Mississippi State University Extension &middot; Beta</p>
   <h1>Beef cattle budgets</h1>
   <p class="asof" id="asof">Loading prices&hellip;</p>
-      <p class="asof tools-line"><a href="#more-tools">More cattle tools</a><button type="button" class="share-btn" id="share-view">Share this view</button><span class="sr-only" role="status" id="share-msg"></span></p>
+      <p class="asof tools-line"><a href="#more-tools">More cattle tools</a><button type="button" class="share-btn" id="share-view">Share this page</button><span class="sr-only" role="status" id="share-msg"></span></p>
 </div></header>
 <nav class="tabs" aria-label="Sections"><div class="wrap" role="tablist">
   <button class="tab" role="tab" data-tab="cc" aria-selected="true">Cow-calf</button>
@@ -256,6 +269,7 @@ footer .legal { display: grid; gap: 8px; margin-top: 18px; }
   <button class="tab" role="tab" data-tab="st" aria-selected="false">Stocker</button>
   <button class="tab" role="tab" data-tab="ro" aria-selected="false">Retained ownership</button>
   <button class="tab" role="tab" data-tab="fb" aria-selected="false">Freezer beef</button>
+  <button class="tab" role="tab" data-tab="fc" aria-selected="false">Forage costs</button>
   <button class="tab" role="tab" data-tab="ab" aria-selected="false">How it works</button>
 </div></nav>
 <main class="wrap" id="main">
@@ -265,18 +279,20 @@ footer .legal { display: grid; gap: 8px; margin-top: 18px; }
   <section class="panel" id="p-cc" hidden>
     <div>
       <h2>Cow-calf budget</h2>
-      <p class="sub">Yearly costs and returns for a cow herd that sells weaned calves and raises its own replacement heifers. Prices start from last month's Mississippi averages; change any number to match your farm.</p>
+      <p class="sub">Yearly costs and returns for a cow herd that sells weaned calves and raises its own replacement heifers.</p>
     </div>
     <div class="modebar">
-      <div class="seg" role="radiogroup" aria-label="Costs the cattle must cover" data-cover-for="cc" title="Operating costs: what you spend this year. All costs: also depreciation, facilities, overhead, taxes and insurance.">
+      <div class="segwrap"><span class="seglab" id="cc-cover-l">Costs to cover</span>
+      <div class="seg" role="radiogroup" aria-labelledby="cc-cover-l" data-cover-for="cc">
         <button type="button" role="radio" data-cover="op">Operating costs</button>
         <button type="button" role="radio" data-cover="all">All costs</button>
-      </div>
+      </div></div>
       <div class="seg" role="radiogroup" aria-label="How much detail" data-mode-for="cc">
         <button type="button" role="radio" data-mode="simple">Simple</button>
         <button type="button" role="radio" data-mode="full">Full</button>
       </div>
-      <p class="note">Simple asks what most producers know and fills in the rest with typical numbers and last month's average prices. Full shows every cost and price.</p>
+      <p class="note">Simple asks what most producers know and fills in the rest with typical numbers and <span data-month></span> average prices. Full shows every cost and price.</p>
+      <p class="note">Operating costs: what is spent during the year. All costs: also depreciation, facilities, overhead, taxes and insurance.</p>
       <button type="button" class="btn top-reset" data-reset="cc">Start over</button>
     </div>
     <div class="tiles" id="cc-tiles"></div>
@@ -302,18 +318,19 @@ footer .legal { display: grid; gap: 8px; margin-top: 18px; }
   <section class="panel" id="p-st" hidden>
     <div>
       <h2>Stocker budget</h2>
-      <p class="sub">Costs and returns for one group of calves bought, grown on pasture and sold as feeders. Purchase and sale prices start from last month's Mississippi auction averages for the weights you enter.</p>
+      <p class="sub">Costs and returns for one group of calves bought, grown on pasture and sold as feeders.</p>
     </div>
     <div class="modebar">
-      <div class="seg" role="radiogroup" aria-label="Costs the cattle must cover" data-cover-for="st" title="Operating costs: what you spend this year. All costs: also depreciation, facilities, overhead, taxes and insurance.">
+      <div class="segwrap"><span class="seglab" id="st-cover-l">Costs to cover</span>
+      <div class="seg" role="radiogroup" aria-labelledby="st-cover-l" data-cover-for="st">
         <button type="button" role="radio" data-cover="op">Operating costs</button>
         <button type="button" role="radio" data-cover="all">All costs</button>
-      </div>
+      </div></div>
       <div class="seg" role="radiogroup" aria-label="How much detail" data-mode-for="st">
         <button type="button" role="radio" data-mode="simple">Simple</button>
         <button type="button" role="radio" data-mode="full">Full</button>
       </div>
-      <p class="note">Simple asks what most producers know and fills in the rest with typical numbers and last month's average prices. Full shows every cost and price.</p>
+      <p class="note">Operating costs: what is spent during the year. All costs: also depreciation, facilities, overhead, taxes and insurance.</p>
       <button type="button" class="btn top-reset" data-reset="st">Start over</button>
     </div>
     <div class="tiles" id="st-tiles"></div>
@@ -338,7 +355,7 @@ footer .legal { display: grid; gap: 8px; margin-top: 18px; }
   <section class="panel" id="p-ro" hidden>
     <div>
       <h2>Retained ownership budget</h2>
-      <p class="sub">Keep your weaned calves, send them to a feedlot, and sell them as fed cattle. The calves are charged at what they would have netted at a Mississippi auction at weaning, so the net return is what retaining earns over selling at weaning. The sale price starts from live cattle futures for the sale month plus the usual basis.</p>
+      <p class="sub">Weaned calves fed at a feedlot and sold as fed cattle, charged at their auction value at weaning, so the net return is the difference between retaining and selling at weaning.</p>
     </div>
     <div class="modebar">
       <button type="button" class="btn top-reset" data-reset="ro">Start over</button>
@@ -361,20 +378,23 @@ footer .legal { display: grid; gap: 8px; margin-top: 18px; }
   <section class="panel" id="p-fb" hidden>
     <div>
       <h2>Freezer beef budget</h2>
-      <p class="sub">Finish your own cattle and sell the beef by the whole, half or quarter, priced per pound of hanging weight. Your own calves are charged at what they would bring at auction, so the net return is what finishing and selling direct earns over selling them at the barn.</p>
+      <p class="sub">Your own cattle finished and sold by the whole, half or quarter, charged at their auction value, so the net return is the difference between selling the beef direct and selling the calves at the barn.</p>
     </div>
     <div class="modebar">
-    <div class="seg" role="radiogroup" aria-label="Costs the cattle must cover" data-cover-for="fb" title="Operating costs: what you spend this year. All costs: also depreciation, facilities, overhead, taxes and insurance.">
+<div class="segwrap"><span class="seglab" id="fb-cover-l">Costs to cover</span>
+      <div class="seg" role="radiogroup" aria-labelledby="fb-cover-l" data-cover-for="fb">
         <button type="button" role="radio" data-cover="op">Operating costs</button>
         <button type="button" role="radio" data-cover="all">All costs</button>
-      </div>
+      </div></div>
       <div class="seg" role="radiogroup" aria-label="How the cattle are finished" id="fb-seg">
       <button type="button" role="radio" data-sys="grain">Grain-fed</button>
       <button type="button" role="radio" data-sys="grass">Grass-fed</button>
     </div>
+      <p class="note">Operating costs: what is spent during the year. All costs: also depreciation, facilities, overhead, taxes and insurance.</p>
       <button type="button" class="btn top-reset" data-reset="fb">Start over</button>
     </div>
     <div class="tiles" id="fb-tiles"></div>
+    <p class="note" id="fb-own"></p>
     <div class="cols">
       <div class="inputs" id="fb-in"></div>
       <div class="panel">
@@ -393,18 +413,20 @@ footer .legal { display: grid; gap: 8px; margin-top: 18px; }
   <section class="panel" id="p-pp" hidden>
     <div>
       <h2>Purchase payoff</h2>
-      <p class="sub">Thinking of buying bred cows, bred heifers or a bull? See what they pay back over their years in your herd, the most you can pay, and how the answer changes with calf prices. Calf weights, prices and yearly costs start from your Cow-calf budget; enter the price you'd pay.</p>
+      <p class="sub">Costs and returns from buying bred cows, bred heifers or a bull, over their years in the herd. Calf weights, prices and yearly costs start from the Cow-calf budget.</p>
     </div>
     <div class="modebar">
-      <div class="seg" role="radiogroup" aria-label="Costs the cattle must cover" data-cover-for="pp" title="Operating costs: what you spend this year. All costs: also depreciation, facilities, overhead, taxes and insurance.">
+      <div class="segwrap"><span class="seglab" id="pp-cover-l">Costs to cover</span>
+      <div class="seg" role="radiogroup" aria-labelledby="pp-cover-l" data-cover-for="pp">
         <button type="button" role="radio" data-cover="op">Operating costs</button>
         <button type="button" role="radio" data-cover="all">All costs</button>
-      </div>
+      </div></div>
       <div class="seg" role="radiogroup" aria-label="What you're buying" id="pp-seg">
         <button type="button" role="radio" data-kind="cow">Bred cow</button>
         <button type="button" role="radio" data-kind="heifer">Bred heifer</button>
         <button type="button" role="radio" data-kind="bull">Bull</button>
       </div>
+      <p class="note">Operating costs: what is spent during the year. All costs: also depreciation, facilities, overhead, taxes and insurance.</p>
       <button type="button" class="btn top-reset" data-reset="pp">Start over</button>
     </div>
     <div class="tiles" id="pp-tiles"></div>
@@ -421,6 +443,16 @@ footer .legal { display: grid; gap: 8px; margin-top: 18px; }
     </div>
   </section>
 
+  <section class="panel" id="p-fc" hidden>
+    <div>
+      <h2>Forage costs</h2>
+      <p class="sub">Per-acre costs of pasture, hay ground and ryegrass, line by line from MSU Extension's 2027 forage budgets, at the page's prices; every budget uses them.</p>
+    </div>
+    <div class="fc-grid" id="fc-sheets"></div>
+    <p class="note">Dry weather raises hay needs. Drought in your county this week, and whether
+      it qualifies for LFP payments: <a href="../drought/?state=ms#map">Beef Cattle Drought Tracker</a>.</p>
+  </section>
+
   <section class="panel about" id="p-ab" hidden>
     <div><h2>How it works</h2></div>
     <div class="card" id="ab-body"></div>
@@ -430,14 +462,6 @@ footer .legal { display: grid; gap: 8px; margin-top: 18px; }
       <div class="scroll" id="pr-tbl"></div>
       <p class="note" style="margin-top:10px">This week's Mississippi auction prices by class and weight, barn by barn:
         <a href="../cattleprices/?state=ms#week">Cattle Auction Prices</a>.</p>
-    </div>
-    <div class="card">
-      <h3>Pasture and hay costs per acre</h3>
-      <p class="note" style="margin-bottom:10px">Quantities from MSU Extension's 2027 forage budgets, priced at the prices above. Chemicals and machinery are carried forward from 2025 by BLS price indexes; other items stay at MSU's 2025 prices.</p>
-      <div class="fields" style="padding:0 0 12px"><div class="f"><label for="fsys">Practice</label><div class="in"><select id="fsys"></select></div></div></div>
-      <div class="scroll" id="forage-tbl"></div>
-      <p class="note" style="margin-top:10px">Dry weather raises hay needs. Drought in your county this week, and whether
-        it qualifies for LFP payments: <a href="../drought/?state=ms#map">Beef Cattle Drought Tracker</a>.</p>
     </div>
   </section>
 </main>
@@ -476,7 +500,7 @@ footer .legal { display: grid; gap: 8px; margin-top: 18px; }
   </div>
 </div></footer>
 
-<script src="budget.js?v=34e0ac025c"></script>
+<script src="budget.js?v=45ebaac780"></script>
 <script>
 "use strict";
 // the page: forms, tables, charts and tabs; the math is in budget.js
@@ -506,7 +530,7 @@ function priceGroup(st, g) {
   det.className = "grp"; det.dataset.prices = "1";
   det.innerHTML = `<summary>Market prices <small>shared by every budget</small></summary><div class="fields"></div>`;
   const wrap = $(".fields", det);
-  wrap.insertAdjacentHTML("beforeend", `<p class="note f wide">Last month's average prices behind the budget. A price you change here changes in every budget on this page. Sources and dates are under How it works.</p>`);
+  wrap.insertAdjacentHTML("beforeend", `<p class="note f wide">${D.month_label} average prices behind the budget. A price you change here changes in every budget on this page. Sources and dates are under How it works.</p>`);
   g.prices.filter(k => D.prices[k]).forEach(k => {
     const p = D.prices[k], el = document.createElement("div"), iid = `${st.key}-p-${k}`;
     el.className = "f"; el.dataset.pk = k;
@@ -516,9 +540,8 @@ function priceGroup(st, g) {
     inp.addEventListener("blur", () => sync(st));
     wrap.appendChild(el);
   });
-  if (g.forage) { const c = document.createElement("div"); c.className = "calc"; c.dataset.forage = "1"; c._forage = g.forage; wrap.appendChild(c); }
   const rb = document.createElement("div"); rb.className = "f wide";
-  rb.innerHTML = `<div class="btns"><button type="button" class="btn">Use last month's prices again</button></div>`;
+  rb.innerHTML = `<div class="btns"><button type="button" class="btn">Use ${D.month_label} average prices again</button></div>`;
   $("button", rb).addEventListener("click", () => { Object.entries(D.prices).forEach(([k, p]) => P[k] = p.value); refreshAll(); });
   wrap.appendChild(rb);
   return det;
@@ -533,28 +556,35 @@ function field(st, f) {
   if (o.check) {
     el.innerHTML = `<input type="checkbox" id="${iid}"><label for="${iid}">${label}</label>`;
     const cb = $("input", el);
-    cb.addEventListener("change", () => { st.typed[id] = cb.checked ? 1 : 0; update(st); });
+    cb.addEventListener("change", () => { if (o.ws) return wsChanged(st, id, () => o.ws(cb.checked ? 1 : 0)); st.typed[id] = cb.checked ? 1 : 0; update(st); });
   } else if (o.select) {
-    el.innerHTML = `<label for="${iid}">${label}</label><div class="in"><select id="${iid}"></select></div>`;
+    el.innerHTML = `<label for="${iid}">${label}</label><div class="in"><select id="${iid}"></select></div>${o.src ? '<div class="src"></div>' : ""}`;
     const sel = $("select", el);
     const opts = typeof o.select === "function" ? o.select() : o.select;
     sel.innerHTML = opts.map(([k, n]) => `<option value="${k}">${n}</option>`).join("");
     sel.addEventListener("change", () => { const n = Number(sel.value); st.typed[id] = sel.value !== "" && !isNaN(n) && typeof st.v[id] === "number" ? n : sel.value; update(st); });
   } else {
-    el.innerHTML = `<label for="${iid}">${label}</label><div class="in"><input type="number" inputmode="decimal" id="${iid}" step="${o.step || "any"}" min="0"><span class="u">${unit}</span></div><div class="src"></div>`;
+    el.innerHTML = `<label for="${iid}">${label}</label><div class="in"><input type="number" inputmode="decimal" id="${iid}" step="${o.step || "any"}"${o.neg ? "" : ' min="0"'}><span class="u">${unit}</span></div><div class="src"></div>`;
     const inp = $("input", el);
-    inp.addEventListener("input", () => { const n = parseFloat(inp.value); if (!isNaN(n)) { st.typed[id] = n; update(st, id); } });
+    inp.addEventListener("input", () => { const n = parseFloat(inp.value); if (isNaN(n)) return;
+      if (o.ws) return wsChanged(st, id, () => o.ws(n)); st.typed[id] = n; update(st, id); });
     inp.addEventListener("blur", () => sync(st));
   }
   return el;
+}
+// a Simple question that writes to the shared Forage costs worksheet: every budget follows it
+function wsChanged(st, id, write) {
+  write();
+  [CCF, STF, ROF, FBF, PPF].forEach(f => update(f, f === st ? id : undefined));
+  drawPrices(); drawForageTab();
 }
 function sync(st, skip) {     // push values into the form
   const box = $(`#${st.key}-in`), simple = st.mode === "simple";
   st.fields.forEach(([id, label, unit, def, o = {}]) => {
     const el = $(`[data-id="${id}"]`, box); if (!el) return;
-    el.hidden = (o.show ? !o.show(st.v) : false) || (simple && !o.simple);
+    el.hidden = (o.show ? !o.show(st.v) : false) || (simple && !o.simple) || (!!o.simpleOnly && !simple);
     if (o.check) { $("input", el).checked = !!st.v[id]; return; }
-    if (o.select) { $("select", el).value = String(st.v[id]); return; }
+    if (o.select) { $("select", el).value = String(st.v[id]); const s = $(".src", el); if (s) { if (o.html) s.innerHTML = o.src(st.v); else s.textContent = o.src(st.v); } return; }
     const inp = $("input", el);
     if (id !== skip) inp.value = roundFor(st.v[id], o.step);
     const live = typeof def === "function";
@@ -563,7 +593,7 @@ function sync(st, skip) {     // push values into the form
     if (live && id in st.typed) {
       src.innerHTML = `<span class="edited">your number</span> <button type="button">use ${roundFor(def(withoutTyped(st, id)), o.step)} again</button>`;
       $("button", src).addEventListener("click", () => { delete st.typed[id]; update(st); });
-    } else src.textContent = txt;
+    } else if (o.html) src.innerHTML = txt; else src.textContent = txt;
   });
   box.querySelectorAll("[data-calc]").forEach(el => { el.hidden = simple && !el._simple; el.textContent = el._calc(st.v); });
   box.querySelectorAll("details[data-g]").forEach(d => { d.hidden = ![...$(".fields", d).children].some(c => !c.hidden); });
@@ -575,9 +605,6 @@ function sync(st, skip) {     // push values into the form
       src.innerHTML = `<span class="edited">your price</span> <button type="button">use ${roundFor(p.value, .01)} again</button>`;
       $("button", src).addEventListener("click", () => { P[k] = p.value; refreshAll(); });
     } else src.textContent = `${SHORT[k] ? SHORT[k] + ": " : ""}${p.source}, ${pdate(p)}`;
-  });
-  box.querySelectorAll("[data-forage]").forEach(el => {
-    el.textContent = el._forage(st.v).map(s => { const a = forageAcre(s, st.v.fert ?? 100); return `${FNAME[s]}: ${usd(a.d, 2)}/acre to run, ${usd(a.f, 2)}/acre machinery and establishment`; }).join(". ") + ". MSU forage budgets at these prices; the item-by-item list is under How it works.";
   });
   const as = $("[data-assume]", box);
   if (as) { as.hidden = !simple; if (simple) $(".assume-body", as).innerHTML = assumed(st); }
@@ -595,7 +622,7 @@ function assumed(st) {   // the inputs Simple hides, in plain words, by group
   return st.spec.filter(g => g.f && !g.cash).map(g => {
     const items = g.f.filter(f => f[1] !== "calc" && !(f[4] || {}).simple && !((f[4] || {}).show && !f[4].show(st.v))).map(f => fmtField(f, st.v));
     return items.length ? `<p><b>${g.g}.</b> ${items.join("; ")}.</p>` : "";
-  }).join("") + `<p>Fertilizer, diesel and feed are at last month's average prices (Full view, Market prices).</p>`;
+  }).join("") + `<p>Fertilizer, diesel and feed are at ${D.month_label} average prices (Full view, Market prices).</p>`;
 }
 // ---------- drawing ----------
 function table(res, cover) {
@@ -619,8 +646,12 @@ function table(res, cover) {
   return `<table class="tbl">${head}<tbody>${body}</tbody></table>`;
 }
 function tiles(id, list) {
-  $(id).innerHTML = list.map(([v, label, kind]) => `<div class="tile ${kind || ""}"><b>${v}</b><span>${label}</span></div>`).join("");
+  $(id).innerHTML = list.map(([v, label, kind, , , pair]) => pair
+    ? `<div class="tile pair ${kind || ""}"><span class="pt">${label}</span>${pair.map(([pv, pl]) => `<div><b>${pv}</b><span>${pl}</span></div>`).join("")}</div>`
+    : `<div class="tile ${kind || ""}"><b>${v}</b><span>${label}</span></div>`).join("");
 }
+// exports list a two-number tile as two lines
+const flatTiles = list => list.flatMap(t => t[5] ? t[5].map(([pv, pl, x]) => [pv, `${t[1]}, ${pl}`, t[2], x, t[4]]) : [t]);
 function sensGrid(rowsDef, colsDef, fn, rowLabel, colLabel, neutral) {
   let h = `<table class="grid-sens"><thead><tr><th>${rowLabel} \\ ${colLabel}</th>${colsDef.map(c => `<th>${c.label}</th>`).join("")}</tr></thead><tbody>`;
   rowsDef.forEach(r => {
@@ -635,6 +666,7 @@ function update(st, skip) {
   document.querySelectorAll(`[data-cover-for="${st.key}"] button`).forEach(b => b.setAttribute("aria-checked", String(b.dataset.cover === st.v.cover)));
   drawHistory(st);
   if (st.key === "cc") { if (PPF) update(PPF); if (ROF) update(ROF); }   // payoff and retained ownership follow the cow-calf budget
+  saveState();
 }
 // What each budget shows up top and its grid of other prices: one source for
 // the page and the Excel and Word exports. A tile is [shown, label, kind,
@@ -653,7 +685,7 @@ function views(key, v) {
         [usd(r.bullPerCalf, 2), "bull cost per calf weaned", "", r.bullPerCalf, "usd2"],
         [usd(r.annualCost), "yearly cost of owning him (purchase, interest, upkeep, death risk, less cull value)", "", r.annualCost, "usd0"],
         [`${num(r.lbToPay)} lb`, "of each calf's weaning weight pays for him", "", r.lbToPay, "int"],
-        v.epd > 0 ? [usd(r.epdWorth), `extra his ${num(v.epd)}-lb EPD edge is worth over ${r.L} years (today's dollars)`, "pos", r.epdWorth, "usd0"]
+        v.epd ? [usd(r.epdWorth), `value of his ${num(v.epd)}-lb EPD difference over ${r.L} years (present value)`, sign(r.epdWorth), r.epdWorth, "usd0"]
                   : [usd(r.bullPerCow, 2), "bull cost per cow exposed each year", "", r.bullPerCow, "usd2"]],
         sens: { title: "Bull cost per calf weaned at other prices and herd sizes", rows: d.map(s => ({ val: s, base: s === 0, label: usd(v.price + s) })),
           cols: cows.map(n => ({ val: n, base: n === v.cows, label: `${num(n)} cows` })), fn: (a, n) => payoff({ ...v, price: v.price + a, cows: n }).bullPerCalf,
@@ -661,14 +693,18 @@ function views(key, v) {
           note: "Each cell is the bull's cost per calf weaned. The outlined cell is your budget." } };
     }
     const d = [-500, -250, 0, 250, 500], c = [-50, -25, 0, 25, 50];
+    // break-even purchase price at this month's calf price and at the 10-year average for that month
+    const b = ccBase(), h = calfPriceHist(v.cwt, b.v.month), hp = h ? payoff({ ...v, cp: h.avg }).maxPay : NaN;
+    const now = Math.abs(v.cp - b.price) < 1e-9 ? `at the ${D.month_label} calf price` : `at your calf price (${usd(v.cp, 2)}/cwt)`;
     return { r, tiles: [
-      [usd(r.maxPay), `most you can pay per ${per} and break even${coverOp(v) ? " on operating costs" : ""}`, "", r.maxPay, "usd0"],
+      [usd(r.maxPay), `Break-even purchase price per ${per}${coverOp(v) ? " (operating costs)" : ""}`, "", r.maxPay, "usd0",
+        [[usd(r.maxPay), now, r.maxPay], [usd(hp), h ? `at the ${h.y0}–${h.y1} average calf price` : "at the 10-year average calf price", hp]]],
       [usd(r.npv), `net present value per ${per} at your price`, sign(r.npv), r.npv, "usd0"],
       [r.payback != null ? `${num(r.payback, 1)} years` : `Not in ${r.L} years`, "to pay back the purchase", r.payback != null ? "" : "neg", r.payback != null ? r.payback : null, "num1"],
       [usd(r.cpBE, 2), "calf price that breaks even ($/cwt)", "", r.cpBE, "usd2"]],
       sens: { title: `Net present value per ${per} at other purchase and calf prices`, rows: d.map(s => ({ val: s, base: s === 0, label: usd(v.price + s) })),
         cols: c.map(s => ({ val: s, base: s === 0, label: usd(v.cp + s) })), fn: (a, b) => payoff({ ...v, price: v.price + a, cp: v.cp + b }).npv,
-        rowLabel: "Purchase price", colLabel: "Calf $/cwt", note: "Green pays for itself at your interest rate; red doesn't. The outlined cell is your budget." } };
+        rowLabel: "Purchase price", colLabel: "Calf $/cwt", note: "Green: net present value above zero at your interest rate. Red: below zero. The outlined cell is your budget." } };
   }
   if (key === "cc") {
     const r = cowCalf(v);
@@ -692,7 +728,7 @@ function views(key, v) {
       [usd(n / r.N), `${what} per head`, sign(n), n / r.N, "usd0"],
       [usd(n), `${what} for ${num(r.N)} head`, sign(n), n, "usd0"],
       [usd(be, 2), `sale price that covers ${op ? "operating" : "all"} costs ($/cwt)`, "", be, "usd2"],
-      [usd(mb, 2), "most you can pay and break even ($/cwt)", "", mb, "usd2"]],
+      [usd(mb, 2), "break-even purchase price ($/cwt)", "", mb, "usd2"]],
       sens: { rows: d.map(s => ({ val: s, base: s === 0, label: usd(v.p0 + s) })), cols: d.map(s => ({ val: s, base: s === 0, label: usd(v.p1 + s) })),
         fn: (a, b) => netFor(stocker({ ...v, p0: v.p0 + a, p1: v.p1 + b }), v) / v.head, rowLabel: "Buy $/cwt", colLabel: "Sell $/cwt" } };
   }
@@ -745,8 +781,8 @@ function drawRO(v) {
   $("#ro-cmp").innerHTML = `<table class="tbl"><tbody>
     <tr><td>Sell at weaning in ${MONTHS_LONG[v.wmonth]}</td><td class="num">${usd(r.wn)}</td></tr>
     <tr><td>Retain and sell in ${MONTHS_LONG[r.sm]} ${r.sy}<small>Fed cattle sales less trucking, feedlot, fees and interest, per calf retained</small></td><td class="num">${usd(kept)}</td></tr>
-    <tr class="net"><td>Retaining earns</td><td class="num${r.net < 0 ? " neg" : ""}">${usd(r.net / r.N)}</td></tr></tbody></table>
-    <p class="note" style="margin-top:10px">Each $10/cwt change in the fed cattle price moves this by ${usd(perTen)} a head. The ${MONTHS_LONG[r.sm]} basis ran from ${usd(b.lo, 2)} to ${usd(b.hi, 2)} in ${D.fed.basis_years[0]}–${D.fed.basis_years[1]}, a swing of ${usd((b.hi - b.lo) * r.saleLb / 100 / r.N)} a head. Futures or Livestock Risk Protection can lock in most of the price; the basis stays a risk.</p>`;
+    <tr class="net"><td>Difference from selling at weaning</td><td class="num${r.net < 0 ? " neg" : ""}">${usd(r.net / r.N)}</td></tr></tbody></table>
+    <p class="note" style="margin-top:10px">Each $10/cwt change in the fed cattle price moves this by ${usd(perTen)} a head. The ${MONTHS_LONG[r.sm]} basis ran from ${usd(b.lo, 2)} to ${usd(b.hi, 2)} in ${D.fed.basis_years[0]}–${D.fed.basis_years[1]}, a swing of ${usd((b.hi - b.lo) * r.saleLb / 100 / r.N)} a head.</p>`;
   showSens("#ro-sens", sens);
 }
 // The other finishing system, with its own starting numbers for everything that
@@ -774,13 +810,15 @@ function drawFBCompare(v) {
   const head = s => `<th${s === v.sys ? ' style="color:var(--ink)"' : ""}>${s === "grain" ? "Grain-fed" : "Grass-fed"}${s === v.sys ? " (your budget)" : ""}</th>`;
   $("#fb-cmp").innerHTML = `<table class="tbl"><thead><tr><th><span class="sr-only">Item</span></th>${head("grain")}${head("grass")}</tr></thead><tbody>
     ${rows.map(([label, f], i) => `<tr${i === rows.length - 1 ? ' class="net"' : ""}><td>${label}</td><td class="num">${f("grain")}</td><td class="num">${f("grass")}</td></tr>`).join("")}</tbody></table>
-    <p class="note" style="margin-top:10px">The ${v.sys === "grain" ? "grass-fed" : "grain-fed"} column uses its own starting weights, gain, feeding, pasture, dressing percentage and beef prices; everything else matches your budget. Grass-fed cattle take longer, dress lower and need more pasture, so they depend on a higher price per pound to pay.</p>`;
+    <p class="note" style="margin-top:10px">The ${v.sys === "grain" ? "grass-fed" : "grain-fed"} column uses its own starting weights, gain, feeding, pasture, dressing percentage and beef prices; everything else matches your budget. With these starting numbers, grass-fed cattle take longer, dress lower and use more pasture.</p>`;
 }
 function drawFB(v) {
   document.querySelectorAll("#fb-seg button").forEach(b => b.setAttribute("aria-checked", String(b.dataset.sys === v.sys)));
   drawFBCompare(v);
   const { r, tiles: t, sens, hh, procHalf, pkg, perPkg } = views("fb", v), check = hh * v.ph;
   tiles("#fb-tiles", t);
+  const own = netFor(r, v) / r.N / v.ownhrs;
+  $("#fb-own").textContent = v.ownhrs > 0 ? `${coverOp(v) ? "Return over operating costs" : "Net return"} per hour of your own time: ${usd(own, 2)} (${num(v.ownhrs, 1)} hours a head).` : "";
   $("#fb-tbl").innerHTML = table(r, v.cover);
   const packer = v.w1 * P.fed_live / 100, rc = D.prices.retail_choice;
   $("#fb-buyer").innerHTML = `<table class="tbl"><tbody>
@@ -790,14 +828,14 @@ function drawFB(v) {
     <tr class="tot"><td>Buyer's total</td><td class="num">${usd(check + procHalf)}</td></tr>
     <tr><td>Packaged beef taken home<small>${num(v.yield)}% of hanging weight</small></td><td class="num">${num(pkg)} lb</td></tr>
     <tr class="net"><td>Cost per lb of packaged beef</td><td class="num">${usd(perPkg, 2)}</td></tr></tbody></table>
-    <p class="note" style="margin-top:10px">Choice beef averaged ${usd(P.retail_choice, 2)}/lb at the grocery store in ${rc.when} (USDA-ERS, all cuts). A buyer gets ground beef, roasts and steaks in one purchase, so compare with that average, not steak prices. Sold to a packer at last month's 5-area average of ${usd(P.fed_live, 2)}/cwt, a ${num(v.w1)}-lb steer would bring about ${usd(packer)}; your beef sales come to ${usd(r.income / Math.max(r.sold, 1e-9))} per animal sold.</p>`;
+    <p class="note" style="margin-top:10px">Choice beef averaged ${usd(P.retail_choice, 2)}/lb at the grocery store in ${rc.when} (USDA-ERS, all cuts). A half includes ground beef, roasts and steaks, so the all-cuts average is the closest comparison. Sold to a packer at the ${D.month_label} 5-area average of ${usd(P.fed_live, 2)}/cwt, a ${num(v.w1)}-lb steer would bring about ${usd(packer)}; your beef sales come to ${usd(r.income / Math.max(r.sold, 1e-9))} per animal sold.</p>`;
   showSens("#fb-sens", sens);
 }
 
 // ---------- Excel and Word exports ----------
 // For producers taking a budget to a lender. The libraries load only when
 // someone exports: from the site's vendor/ folder, or the CDN in the artifact
-// copy (window.BUDGET_LIBS). Nothing typed here is saved or sent anywhere.
+// copy (window.BUDGET_LIBS). What the user types stays in this browser.
 const LIBS = window.BUDGET_LIBS || { exceljs: "vendor/exceljs-4.4.0.min.js", docx: "vendor/docx-8.5.0.umd.js" };
 const libLoads = {};
 function loadLib(name, global) {
@@ -829,7 +867,7 @@ const REPORT = { for: "", by: "", notes: "" };
 function renderExports(key) {
   const box = $(`[data-export="${key}"]`);
   box.innerHTML = `<h3>Take this budget with you</h3>
-    <p class="note">Excel keeps the budget's formulas so you or your lender can change a number. Word makes a report with the summary, budget, assumptions and sources.</p>
+    <p class="note">Excel includes each budget line as a quantity-times-price formula. Word makes a report with the summary, budget, assumptions and sources.</p>
     <div class="fields">
       <div class="f"><label for="${key}-rfor">Prepared for (name or farm)</label><div class="in"><input type="text" id="${key}-rfor" data-rep="for" autocomplete="off"></div></div>
       <div class="f"><label for="${key}-rby">Prepared by</label><div class="in"><input type="text" id="${key}-rby" data-rep="by" autocomplete="off"></div></div>
@@ -862,13 +900,12 @@ const longDate = () => new Date().toLocaleDateString("en-US", { year: "numeric",
 function histColsFor(key, v) {
   if (!HIST_COLS[key]) return [];      // purchase payoff has no past-years table
   const c = HIST_COLS[key].map(x => x.slice()), op = coverOp(v);
-  if (op && (key === "cc" || key === "st")) { const i = c.findIndex(x => x[1] === "net"); c[i] = [key === "cc" ? "Return over operating costs per cow" : "Return over operating costs per head", "netOp", "usd0"]; }
   if (op && key === "fb") { const i = c.findIndex(x => x[1] === "be"); c[i] = ["Operating cost per lb hanging", "beOp", "usd2"]; }
   return c;
 }
 const HIST_COLS = {
-  cc: [["Year", "year", "int"], ["Steer calf ($/cwt)", "price", "usd2"], ["Covers all costs ($/cwt)", "beAll", "usd2"], ["Net return per cow", "net", "usd0"]],
-  st: [["Year bought", "year", "int"], ["Buy ($/cwt)", "buy", "usd2"], ["Sell ($/cwt)", "price", "usd2"], ["Net return per head", "net", "usd0"]],
+  cc: [["Year", "year", "int"], ["Steer calf ($/cwt)", "price", "usd2"], ["Covers operating costs ($/cwt)", "beOp", "usd2"], ["Return over operating costs per cow", "netOp", "usd0"]],
+  st: [["Year bought", "year", "int"], ["Buy ($/cwt)", "buy", "usd2"], ["Sell ($/cwt)", "price", "usd2"], ["Return over operating costs per head", "netOp", "usd0"]],
   ro: [["Year weaned", "year", "int"], ["Calf ($/cwt)", "wean", "usd2"], ["Sold", "sold", "text"], ["Fed cattle ($/cwt)", "price", "usd2"], ["Net return per head", "net", "usd0"]],
   fb: [["Year", "year", "int"], ["Calf ($/cwt)", "calf", "usd2"], ["Cost per lb hanging", "be", "usd2"]],
 };
@@ -894,20 +931,20 @@ function reportModel(st) {
   const inputs = st.spec.filter(g => g.f).map(g => ({ group: g.g,
     items: g.f.filter(f => f[1] !== "calc" && !((f[4] || {}).show && !f[4].show(v))).map(f => inputRow(st, f)) })).filter(g => g.items.length);
   const s = vw.sens;
-  const hist = D.history ? historyRows(st) : [];
+  const hist = D.history ? histRows(st) : [];
   const slug = REPORT.for ? " " + REPORT.for.replace(/[^\w .-]+/g, "").trim().slice(0, 40) : "";
   const name = nameFor(key, v);
   return { key, v, r, name, file: `${name}${slug} ${isoDate()}`.replace(/\s+/g, " "), years: key === "pp" ? r.years : null,
     buy: key === "pp" ? v.price + v.extra : null, bull: key === "pp" && isBull(v), neutral: !!s.neutral,
     cash: key === "cc" || key === "st" ? cashFlow(key, v) : null,
-    unitLabel: r.unit, per: r.per, tiles: vw.tiles, inputs,
+    unitLabel: r.unit, per: r.per, tiles: flatTiles(vw.tiles), inputs,
     sens: { title: s.title || SENS_TITLE[key], rowLabel: s.rowLabel, colLabel: s.colLabel, cols: s.cols.map(c => c.label),
       rows: s.rows.map(row => ({ label: row.label, vals: s.cols.map(c => s.fn(row.val, c.val)), base: s.cols.map(c => row.base && c.base) })) },
     hist, histCols: histColsFor(key, v),
     cover: ["cc", "st", "fb", "pp"].includes(key) ? (coverOp(v) ? "Operating costs only" : "All costs, including fixed costs") : null,
     prices: PRICE_KEYS[key].filter(k => D.prices[k]).map(k => ({ ...D.prices[k], value: P[k], yours: P[k] !== D.prices[k].value })),
     asof: `Prices through ${fdate(D.generated)}; Mississippi auction prices through ${fdate(D.cattle.through)}.`,
-    sources: "Mississippi auction prices: USDA-AMS and the Mississippi Department of Agriculture and Commerce. Pasture and hay: MSU Extension forage budgets. " +
+    sources: "Mississippi auction prices: USDA-AMS and the Mississippi Department of Agriculture and Commerce. Pasture and hay: MSU Extension 2027 forage budgets. " +
       "Other prices: USDA-AMS, USDA-NASS, USDA-ERS, BLS, the Federal Reserve Bank of Dallas and CME Group, as listed with each price.",
     disclaimer: "Prepared with the Mississippi State University Extension beef cattle budget tool (beta), using the producer's own numbers and public market prices. " +
       "It is an estimate for planning, not a forecast of what any farm will earn. Starting numbers without a public source are typical values; replace them with your own." };
@@ -936,7 +973,7 @@ async function buildXlsx(m) {
   if (REPORT.for) add(["Prepared for", REPORT.for]);
   if (REPORT.by) add(["Prepared by", REPORT.by]);
   add(["Date", longDate()]);
-  if (m.cover) add(["Costs the cattle must cover", m.cover]);
+  if (m.cover) add(["Costs to cover", m.cover]);
   add([m.asof]).font = { italic: true, color: { argb: "FF555555" } };
   if (REPORT.notes) { const n = add(["Notes", REPORT.notes]); n.getCell(2).alignment = { wrapText: true, vertical: "top" }; ws.mergeCells(n.number, 2, n.number, 7); }
   add([]);
@@ -974,11 +1011,17 @@ async function buildXlsx(m) {
     const R = m.r;
     if (sec.name === "Income") totals.inc = subtotal("Total income", `SUM(F${first}:F${last})`, R.income);
     if (sec.name === "Operating costs") { totals.op = subtotal("Total operating costs", `SUM(F${first}:F${last})`, R.op);
-      if (totals.inc && R.own) subtotal("Return over operating costs", `F${totals.inc}-F${totals.op}`, R.income - R.op); }
+      if (totals.inc && R.own && !m.bull) subtotal("Return over operating costs", `F${totals.inc}-F${totals.op}`, R.income - R.op); }
     if (sec.name === "Ownership costs") totals.own = subtotal("Total ownership costs", `SUM(F${first}:F${last})`, R.own);
   });
-  const tc = totals.own ? subtotal("Total costs", `F${totals.op}+F${totals.own}`, m.r.total) : totals.op;
-  subtotal("Net return", `F${totals.inc}-F${tc}`, m.r.net, { big: true });
+  if (m.bull) {          // a bull's budget ends in his yearly cost of ownership, not a net return
+    const x = add(["Yearly cost of ownership", null, null, null, m.r.annualCost, m.r.annualCost * m.per,
+      "Purchase, upkeep and death risk less cull value, spread over the years at the interest rate"]);
+    x.font = { bold: true, size: 12 }; x.getCell(5).numFmt = USD2; x.getCell(6).numFmt = USD0;
+  } else {
+    const tc = totals.own ? subtotal("Total costs", `F${totals.op}+F${totals.own}`, m.r.total) : totals.op;
+    subtotal("Net return", `F${totals.inc}-F${tc}`, m.r.net, { big: true });
+  }
   add([]);
   const note = add(["Totals are formulas: change a quantity, price or total and the subtotals and net return follow. Interest, marketing and other lines the budget figures from several inputs are entered as values."]);
   note.font = { italic: true, size: 9, color: { argb: "FF666666" } }; ws.mergeCells(note.number, 1, note.number, 7); note.getCell(1).alignment = { wrapText: true }; note.height = 28;
@@ -1001,7 +1044,7 @@ async function buildXlsx(m) {
   if (m.cash) {
     const cf = m.cash, n = cf.months.length, ws2 = wb.addWorksheet("Cash flow", { views: [{ showGridLines: false, state: "frozen", xSplit: 1, ySplit: 2 }],
       pageSetup: { paperSize: 1, orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 } });
-    ws2.addRow([`Cash in (+) and out (-) by month. Cash only: ${usd(cf.nonCash)} of depreciation and other ownership costs that aren't paid out are left out.`]).font = { italic: true, size: 9 };
+    ws2.addRow([`Cash in (+) and out (-) by month. Cash only: ${usd(cf.nonCash)} of depreciation and other ownership costs that aren't paid out are left out.${m.key === "cc" ? " A replacement bull bought and a cull bull sold each year are in." : ""}`]).font = { italic: true, size: 9 };
     const hr = ws2.addRow(["Item", ...cf.months.map(mm => MONTHS[mm]), "Total"]); hr.font = { bold: true };
     const col = i => String.fromCharCode(66 + i);          // B, C, ... (at most 13 month columns)
     const first = ws2.rowCount + 1;
@@ -1068,7 +1111,7 @@ async function buildDocx(m) {
 
   const kids = [];
   kids.push(para([run(m.name, { bold: true, size: 40, color: "5D1725" })], { spacing: { after: 80 } }));
-  const meta = [REPORT.for && `Prepared for ${REPORT.for}`, REPORT.by && `Prepared by ${REPORT.by}`, longDate(), m.cover && `Costs covered: ${m.cover.toLowerCase()}`].filter(Boolean).join("  ·  ");
+  const meta = [REPORT.for && `Prepared for ${REPORT.for}`, REPORT.by && `Prepared by ${REPORT.by}`, longDate(), m.cover && `Costs to cover: ${m.cover.toLowerCase()}`].filter(Boolean).join("  ·  ");
   kids.push(para([run(meta, { size: 21 })]));
   kids.push(para([run(m.asof, { size: 18, color: "666666", italics: true })], { spacing: { after: 200 } }));
   if (REPORT.notes) { kids.push(h("Notes")); REPORT.notes.split(/\n+/).forEach(t => kids.push(para(t))); }
@@ -1096,11 +1139,11 @@ async function buildDocx(m) {
         cell(money(row.total / m.per, 2), bw[3], { right: true }), cell(money(row.total), bw[4], { right: true })] }));
     });
     if (sec.name === "Income") rows.push(sub("Total income", r.income));
-    if (sec.name === "Operating costs") { rows.push(sub("Total operating costs", r.op)); if (r.own) rows.push(sub("Return over operating costs", r.income - r.op)); }
+    if (sec.name === "Operating costs") { rows.push(sub("Total operating costs", r.op)); if (r.own && !m.bull) rows.push(sub("Return over operating costs", r.income - r.op)); }
     if (sec.name === "Ownership costs") rows.push(sub("Total ownership costs", r.own));
   });
-  if (r.own) rows.push(sub("Total costs", r.total));
-  rows.push(sub("Net return", r.net, true));
+  if (m.bull) rows.push(sub("Yearly cost of ownership", r.annualCost * m.per, true));
+  else { if (r.own) rows.push(sub("Total costs", r.total)); rows.push(sub("Net return", r.net, true)); }
   kids.push(table(bw, rows));
 
   kids.push(h("Key assumptions"));
@@ -1128,7 +1171,7 @@ async function buildDocx(m) {
     kids.push(h("Cash flow"));
     kids.push(para([run(`Operating money needed at the low point: ${money(-Math.min(cf.low, 0))} in ${MONTHS_LONG[cf.months[cf.lowAt]]}. ` +
       `The running balance is below zero ${num(cf.belowZero)} of ${num(cf.months.length)} months and ends at ${money(cf.end)}. ` +
-      `Cash only: ${money(cf.nonCash)} of depreciation and other ownership costs that aren't paid out are left out.`, { size: 19 })], { spacing: { after: 120 } }));
+      `Cash only: ${money(cf.nonCash)} of depreciation and other ownership costs that aren't paid out are left out.${m.key === "cc" ? " A replacement bull bought and a cull bull sold each year are in." : ""}`, { size: 19 })], { spacing: { after: 120 } }));
     const cw2 = [2400, 1920, 1920, 1920, 1920];
     kids.push(table(cw2, [headRow(["Month", "Cash in", "Cash out", "Net", "Running balance"], cw2, i => i > 0)].concat(cf.months.map((mm, i) => new d.TableRow({ cantSplit: true,
       children: [MONTHS_LONG[mm], cf.inflow[i] ? money(cf.inflow[i]) : "–", cf.outflow[i] ? money(-cf.outflow[i]) : "–", money(cf.inflow[i] + cf.outflow[i]), money(cf.balance[i])]
@@ -1183,6 +1226,7 @@ function showView(key, view) {
   document.querySelectorAll(`#p-${key} .card[data-view]`).forEach(c => { c.hidden = c.dataset.view !== view; });
 }
 function cashChart(cf) {            // money in above the line, money out below, the running balance as a line
+  if (![...cf.inflow, ...cf.outflow, ...cf.balance].every(Number.isFinite)) return `<p class="note">–</p>`;
   const W = 640, H = 250, L = 80, R = 12, T = 12, B = 26, n = cf.months.length;
   const vals = cf.inflow.concat(cf.outflow, cf.balance, [0]);
   let lo = Math.min(...vals), hi = Math.max(...vals);
@@ -1217,7 +1261,7 @@ function drawCash(key, v) {
       ${stat(`${num(cf.belowZero)} of ${num(cf.months.length)}`, "months the running balance is below zero")}
       ${stat(usd(cf.end), key === "cc" ? "cash left at the end of the year" : "cash left after the sale", cf.end >= 0 ? "pos" : "neg")}
     </div>` + cashChart(cf) +
-    `<p class="note" style="margin-top:6px">Cash only. Depreciation and other ownership costs that aren't paid out (${usd(cf.nonCash)}, ${usd(cf.nonCash / cf.r.N)} per ${per}) are left out, so the cash left over is the budget's net return plus that amount. When each cost is paid can be changed in the Full view, under When cash comes and goes.</p>
+    `<p class="note" style="margin-top:6px">Cash only. Depreciation and other ownership costs that aren't paid out (${usd(cf.nonCash)}, ${usd(cf.nonCash / cf.r.N)} per ${per}) are left out${key === "cc" ? "; a replacement bull bought and a cull bull sold each year are in" : ", so the cash left over is the budget's net return plus that amount"}. When each cost is paid can be changed in the Full view, under When cash comes and goes.</p>
     <div class="scroll"><table class="tbl cf-tbl"><thead><tr><th>Month</th><th>Cash in</th><th>Cash out</th><th>Net</th><th>Running balance</th></tr></thead><tbody>
     ${cf.months.map((m, i) => `<tr${i === cf.lowAt && cf.low < 0 ? ' class="lowrow"' : ""}><td>${MONTHS_LONG[m]}</td><td class="num">${cf.inflow[i] ? usd(cf.inflow[i]) : "–"}</td><td class="num">${cf.outflow[i] ? usd(-cf.outflow[i]) : "–"}</td><td class="num${cf.inflow[i] + cf.outflow[i] < 0 ? " neg" : ""}">${usd(cf.inflow[i] + cf.outflow[i])}</td><td class="num${cf.balance[i] < 0 ? " neg" : ""}">${usd(cf.balance[i])}</td></tr>`).join("")}
     </tbody></table></div>
@@ -1234,7 +1278,9 @@ function drawPP(v) {
   const { r, tiles: t, sens } = views("pp", v), per = r.unit;
   tiles("#pp-tiles", t);
   $("#pp-tbl-h").textContent = `${KIND_NAME[v.kind]}${v.head > 1 ? "s" : ""}: ${num(v.head)} bought, ${num(r.L)} years in your herd`;
-  $("#pp-tbl").innerHTML = table(r) + `<p class="note" style="margin-top:10px">Totals over the ${num(r.L)} years. Net return here is the purchase's value today at ${num(v.rate, 2)}% interest (net present value): positive means it pays for itself and earns more than your cost of money.${isBull(v) ? " A bull's value is the calves he sires, which you'd need a bull for anyway, so look at his cost per calf." : ""}</p>`;
+  $("#pp-tbl").innerHTML = isBull(v)
+    ? bullTable(r, v) + `<p class="note" style="margin-top:10px">Totals over the ${num(r.L)} years. A bull's value is the calves he sires, so this view reports his cost per calf.</p>`
+    : table(r) + `<p class="note" style="margin-top:10px">Totals over the ${num(r.L)} years. Net return here is the purchase's value today at ${num(v.rate, 2)}% interest (net present value): positive means returns exceed the purchase price and your cost of money.</p>`;
   const y = r.years, pts = [{ label: "Buy", title: "Purchase", v: -(v.price + v.extra) }].concat(y.map(x => ({ label: x.t, title: `End of year ${x.t}`, v: x.cum })));
   const cols = isBull(v)
     ? [["Year", x => x.t], ["Calves sired", x => num(x.calves, 1)], ["Genetics value", x => usd(x.income)], ["Upkeep", x => usd(x.cost)], ["Cull value", x => x.salvage ? usd(x.salvage) : "–"], ["Net", x => usd(x.net)], ["Running total", x => usd(x.cum)]]
@@ -1249,12 +1295,27 @@ function drawPP(v) {
   showSens("#pp-sens", sens);
 }
 
+// A bull's purchase, upkeep and cull value, ending in his yearly cost of ownership (no net return line)
+function bullTable(r, v) {
+  const per = r.per, line = re => r.rows.filter(x => re.test(x.item)).reduce((t, x) => t + x.total, 0);
+  const row = (label, val, note, cls = "") => `<tr class="${cls}"><td>${label}${note ? `<small>${note}</small>` : ""}</td><td class="num">${usd(val / per)}</td><td class="num">${usd(val)}</td></tr>`;
+  return `<table class="tbl"><thead><tr><th>Item</th><th>Per bull</th><th>Total</th></tr></thead><tbody>` +
+    row("Purchase price", line(/^Purchase price|^Trucking, testing/), v.extra ? `${usd(v.price)} plus ${usd(v.extra)} trucking, testing and other purchase costs` : "") +
+    row(`Upkeep over ${num(r.L)} years`, line(/^Yearly upkeep/), `${usd(v.bcost)} a year while he's in the herd`) +
+    (v.epd ? row("Calf value from his genetics", line(/^Extra calf value/), `${num(v.epd)} lb per calf at ${usd(v.cp, 2)}/cwt`) : "") +
+    row("Cull value at the end", line(/^Cull value/), `${num(v.cullwt)} lb at ${usd(v.cullp, 2)}/cwt after ${num(v.death, 1)}% death loss a year`) +
+    row("Yearly cost of ownership", r.annualCost * per, `Purchase, upkeep and death risk less cull value, spread over ${num(r.L)} years at ${num(v.rate, 2)}% interest`, "net") +
+    `</tbody></table>`;
+}
+
 // ---------- your budget in past years ----------
 // The same budget, with the user's own herd, weights and feeding, priced at
 // each past year's prices (historyRows in budget.js), next to last month's.
 function niceStep(x) { const p = Math.pow(10, Math.floor(Math.log10(x))); return [1, 2, 2.5, 5, 10].map(m => m * p).find(s => s >= x); }
 function histChart(pts, o) {
   const W = 640, H = 230, L = 58, R = 12, T = 10, B = 26;
+  pts = pts.filter(p => Number.isFinite(p.v));
+  if (o.line != null && !Number.isFinite(o.line)) o = { ...o, line: null };
   if (!pts.length) return `<p class="note">Not enough past prices for these choices.</p>`;
   const vals = pts.map(p => p.v).concat(o.line != null ? [o.line] : []);
   let lo = Math.min(0, ...vals), hi = Math.max(0, ...vals);
@@ -1295,43 +1356,52 @@ document.addEventListener("keydown", e => {
   e.preventDefault(); chartSay(svg, i < 0 && e.key === "ArrowLeft" ? n - 1 : to);
 });
 document.addEventListener("focusin", e => { if (e.target.classList && e.target.classList.contains("hchart") && e.target.dataset.i == null) chartSay(e.target, e.target.querySelectorAll("rect[data-say]").length - 1); });
+// The month a past-years row is priced from; the row for this data's month repeats
+// the "Now" bar, so it is left out (C3).
+const HIST_ANCHOR = { cc: v => v.month, st: v => v.bmonth, ro: v => v.wmonth, fb: v => v.smonth };
+const histRows = st => historyRows(st).filter(x => ym(x.year, HIST_ANCHOR[st.key](st.v)) !== D.cattle.month);
+// What a past year keeps at this year's values (C3): starting guesses and anything the user typed per acre.
+function heldNote(key, v) {
+  const typed = ["P", "W", "H", "G"].some(r => v["fc" + r] === "own") ? ", and the cost per acre you typed" : "";
+  const held = { cc: "facilities, repairs, mineral, hauling, bull price and feed handling", st: "facilities, mineral, hauling, trucking and feed handling",
+                 ro: "yardage, trucking and hauling", fb: "facilities, mineral, hauling, feed handling and processing" }[key];
+  return `Held at this year's values: ${held}${typed}.`;
+}
 function drawHistory(st) {
   const box = $(`#${st.key}-hist`); if (!box) return;
   if (!D.history) { box.closest(".card").hidden = true; return; }
-  const v = st.v, rows = historyRows(st);
-  const money = (x, axis) => usd(x, axis ? 0 : 0), perLb = (x) => usd(x, 2);
+  const v = st.v, rows = histRows(st);
+  const money = (x, axis) => usd(x, axis ? 0 : 0), perLb = (x) => usd(x, 2), nowT = `${D.month_label} average prices`;
   let pts, o, title, note, cols;
   const yr = r => ({ label: r.year, title: String(r.year) });
-  if (st.key === "cc") {
+  if (st.key === "cc") {               // return over operating costs, whatever the cost switch says
     const r = cowCalf(v);
-    const op = coverOp(v), key = op ? "netOp" : "net", what = op ? "return over operating costs" : "net return";
-    pts = rows.map(x => ({ ...yr(x), v: x[key] })).concat([{ label: "Now", title: "Last month's prices", v: netFor(r, v) / r.N, now: true }]);
-    o = { signed: true, fmt: money, label: `${what} per cow by year` };
-    title = `Your budget in past years: ${what} per cow, calves sold in ${MONTHS_LONG[v.month]}`;
-    note = `Your herd at each year's prices, calves sold in ${MONTHS_LONG[v.month]}.`;
-    cols = [["Year", x => x.year], ["Steer calf $/cwt", x => usd(x.price, 2)], ["Covers all costs $/cwt", x => usd(x.beAll, 2)], [op ? "Over operating costs per cow" : "Net per cow", x => usd(x[key])]];
+    pts = rows.map(x => ({ ...yr(x), v: x.netOp })).concat([{ label: "Now", title: nowT, v: (r.income - r.op) / r.N, now: true }]);
+    o = { signed: true, fmt: money, label: "Return over operating costs per cow by year" };
+    title = `Your budget in past years: return over operating costs per cow, calves sold in ${MONTHS_LONG[v.month]}`;
+    note = heldNote("cc", v);
+    cols = [["Year", x => x.year], ["Steer calf $/cwt", x => usd(x.price, 2)], ["Covers operating costs $/cwt", x => usd(x.beOp, 2)], ["Over operating costs per cow", x => usd(x.netOp)]];
   } else if (st.key === "st") {
     const r = stocker(v);
-    const op = coverOp(v), key = op ? "netOp" : "net", what = op ? "return over operating costs" : "net return";
-    pts = rows.map(x => ({ ...yr(x), v: x[key] })).concat([{ label: "Now", title: "Last month's prices", v: netFor(r, v) / r.N, now: true }]);
-    o = { signed: true, fmt: money, label: `${what} per head by year bought` };
-    title = `Your budget in past years: ${what} per head, bought in ${MONTHS_LONG[v.bmonth]}`;
-    note = `Bought and sold at each year's Mississippi auction prices for those months.`;
-    cols = [["Year", x => x.year], ["Buy $/cwt", x => usd(x.buy, 2)], ["Sell $/cwt", x => usd(x.price, 2)], [op ? "Over operating costs per head" : "Net per head", x => usd(x[key])]];
+    pts = rows.map(x => ({ ...yr(x), v: x.netOp })).concat([{ label: "Now", title: nowT, v: (r.income - r.op) / r.N, now: true }]);
+    o = { signed: true, fmt: money, label: "Return over operating costs per head by year bought" };
+    title = `Your budget in past years: return over operating costs per head, bought in ${MONTHS_LONG[v.bmonth]}`;
+    note = `Bought and sold at each year's Mississippi auction prices for those months. ${heldNote("st", v)}`;
+    cols = [["Year", x => x.year], ["Buy $/cwt", x => usd(x.buy, 2)], ["Sell $/cwt", x => usd(x.price, 2)], ["Over operating costs per head", x => usd(x.netOp)]];
   } else if (st.key === "ro") {
     const r = retained(v);
-    pts = rows.map(x => ({ ...yr(x), v: x.net, title: `Weaned ${x.year}, sold ${x.sold}` })).concat([{ label: "Now", title: "Last month's prices and futures", v: r.net / r.N, now: true }]);
+    pts = rows.map(x => ({ ...yr(x), v: x.net, title: `Weaned ${x.year}, sold ${x.sold}` })).concat([{ label: "Now", title: `${nowT} and futures`, v: r.net / r.N, now: true }]);
     o = { signed: true, fmt: money, label: "Retaining vs selling at weaning by year weaned" };
     title = `Your budget in past years: retaining vs. selling at weaning, by year weaned`;
-    note = `Fed cattle sold at the 5-area cash price the month they would have finished. "Now" uses futures.`;
+    note = `Fed cattle sold at the 5-area cash price the month they would have finished; "Now" uses futures. ${heldNote("ro", v)}`;
     cols = [["Weaned", x => x.year], ["Calf $/cwt", x => usd(x.wean, 2)], ["Sold", x => x.sold], ["Fed $/cwt", x => usd(x.price, 2)], ["Net per head", x => usd(x.net)]];
   } else {
     const r = freezer(v);
     const op = coverOp(v), key = op ? "beOp" : "be";
-    pts = rows.map(x => ({ ...yr(x), v: x[key] })).concat([{ label: "Now", title: "Last month's prices", v: op ? r.op / r.lbs : r.beHang, now: true }]);
+    pts = rows.map(x => ({ ...yr(x), v: x[key] })).concat([{ label: "Now", title: nowT, v: op ? r.op / r.lbs : r.beHang, now: true }]);
     o = { signed: false, fmt: perLb, label: "Cost per pound of hanging weight by year", line: r.avgPrice, lineLabel: `Your average price ${usd(r.avgPrice, 2)}/lb` };
     title = `Your budget in past years: ${op ? "operating cost" : "cost"} per pound of hanging weight`;
-    note = `Includes what the calf would have brought at auction. The line is your price today; past freezer beef prices aren't published.`;
+    note = `Includes the calf's auction value. The line is your price; past freezer beef prices aren't published. ${heldNote("fb", v)}`;
     cols = [["Year", x => x.year], ["Calf $/cwt", x => usd(x.calf, 2)], [op ? "Operating cost per lb hanging" : "Cost per lb hanging", x => usd(x[key], 2)]];
   }
   $(`#${st.key}-hist-h`).textContent = title;
@@ -1360,53 +1430,90 @@ function drawPrices() {
   <p class="note" style="margin-top:8px">Mississippi has no fertilizer, diesel or hay report, so those use the nearest states'. Wholesale feed prices leave out delivery and handling. Labor is the average weekly wage divided by 40 hours.</p>`;
 }
 const pct = r => `${r >= 1 ? "+" : "−"}${num(Math.abs(r - 1) * 100, 1)}%`;
-function drawForage() {
-  const sel = $("#fsys");
-  if (!sel.options.length) {
-    sel.innerHTML = Object.entries(D.forage.systems).map(([k, s]) => `<option value="${k}">${s.name} (MSU table ${s.table})</option>`).join("");
-    sel.addEventListener("change", drawForage);
-  }
-  const a = forageAcre(sel.value);
-  const r = x => `<tr><td>${x.item}<small>${x.how}</small></td><td class="num">${num(x.qty, 2)} ${x.unit}</td><td class="num">${usd(x.price, 2)}</td><td class="num">${usd(x.cost, 2)}</td></tr>`;
-  $("#forage-tbl").innerHTML = `<table class="tbl"><thead><tr><th>Item</th><th>Quantity</th><th>Price</th><th>Per acre</th></tr></thead><tbody>
-    <tr class="sec"><td colspan="4">Operating</td></tr>${a.direct.map(r).join("")}
-    <tr class="tot"><td>Operating cost per acre</td><td></td><td></td><td class="num">${usd(a.d, 2)}</td></tr>
-    <tr class="sec"><td colspan="4">Machinery and establishment</td></tr>${a.fixed.map(r).join("")}
-    <tr class="tot"><td>Machinery and establishment per acre</td><td></td><td></td><td class="num">${usd(a.f, 2)}</td></tr>
-    <tr class="net"><td>Total per acre</td><td></td><td></td><td class="num">${usd(a.d + a.f, 2)}</td></tr></tbody></table>
-    <p class="note" style="margin-top:8px">Nitrogen is priced as urea and phosphate as DAP, per hundredweight of product. Interest is left out here; each budget charges interest on all its operating costs once.</p>`;
+// One worksheet per practice: switch lines on or off and change quantities; MSU's
+// printed quantity stays beside each line. Shared by every budget (B2-B5).
+const WS_START = { overseed: "; its phosphate, potash and soil test are left to the permanent pasture" };
+function drawForageTab() {
+  const box = $("#fc-sheets"); if (!box) return;
+  box.innerHTML = FORAGE_SYS.map(sys => {
+    const a = forageAcre(sys), w = ws(sys), printed = wsPrinted(sys);
+    const row = r => {
+      const id = `ws-${sys}-${r.i}`, q = r.i in w.qty ? w.qty[r.i] : r.printed;
+      return `<tr class="${r.on ? "" : "off"}">${r.part === "est" ? "<td class=\"on\"></td>" : `<td class="on"><input type="checkbox" id="${id}" data-ws="${sys}" data-i="${r.i}"${r.on ? " checked" : ""}></td>`}
+        <td>${r.part === "est" ? r.item : `<label for="${id}">${r.item}</label>`}<small>${r.how}</small></td>
+        <td class="num"><input class="wsq" type="number" inputmode="decimal" step="any" min="0" value="${roundFor(q, .01)}" data-wsq="${sys}" data-i="${r.i}" aria-label="${r.item}, your quantity (${r.unit})"> ${r.unit}<small class="show-sm">MSU: ${num(r.printed, 2)}</small></td>
+        <td class="num hide-sm">${num(r.printed, 2)}</td><td class="num hide-sm">${usd(r.price, 2)}</td><td class="num">${usd(r.cost, 2)}</td></tr>`;
+    };
+    const tot = (label, val, cls = "tot") => `<tr class="${cls}"><td></td><td>${label}</td><td></td><td class="hide-sm"></td><td class="hide-sm"></td><td class="num">${usd(val, 2)}</td></tr>`;
+    const sec = label => `<tr class="sec"><td colspan="6">${label}</td></tr>`;
+    return `<div class="card" data-sheet="${sys}"><h3>${FNAME[sys]} <small style="font-weight:400;color:var(--muted)">MSU table ${a.table}</small></h3>
+      <p class="ws-state${printed ? "" : " changed"}">${printed ? `MSU 2027 forage budget, printed rates${WS_START[sys] || ""}` : "Changed from MSU's printed budget"}</p>
+      <label class="ws-est"><input type="checkbox" data-est="${sys}"${w.est ? " checked" : ""}> Charge establishment (new or renovated stand)</label>
+      <div class="scroll"><table class="tbl ws-tbl"><thead><tr><th><span class="sr-only">Used</span></th><th>Item</th><th>Your quantity</th><th class="hide-sm">MSU printed</th><th class="hide-sm">Price</th><th>Per acre</th></tr></thead><tbody>
+        ${sec("Operating")}${a.direct.map(row).join("")}${tot("Operating cost per acre", a.d)}
+        ${sec("Machinery and establishment")}${a.fixed.map(row).join("")}${tot("Machinery and establishment per acre", a.f)}
+        ${tot("Total per acre", a.d + a.f, "net")}</tbody></table></div>
+      <div class="btns" style="margin-top:10px"><button type="button" class="btn" data-wsreset="${sys}"${printed ? " disabled" : ""}>Use MSU's printed budget again</button></div></div>`;
+  }).join("") + `<p class="note">Nitrogen is priced as urea and phosphate as DAP, per hundredweight of product. Chemicals and machinery are carried forward from 2025 by BLS price indexes; other items stay at MSU's 2025 prices. Interest is left out here; each budget charges interest on its operating costs once.</p>`;
+}
+function forageEdited() { saveState(); refreshAll(); }
+function wireForageTab() {
+  const box = $("#fc-sheets");
+  box.addEventListener("change", e => {
+    const t = e.target, sys = t.dataset.ws || t.dataset.wsq || t.dataset.est;
+    if (!sys) return;
+    const w = ws(sys), i = Number(t.dataset.i), it = wsLines(sys)[i];
+    if (t.dataset.est) w.est = t.checked ? 1 : 0;
+    else if (t.dataset.ws) { if (startsOff(sys, it)) { if (t.checked) w.on[i] = 1; else delete w.on[i]; } else if (t.checked) delete w.off[i]; else w.off[i] = 1; }
+    else { const n = parseFloat(t.value); if (isNaN(n) || n < 0) return; if (Math.abs(n - it.qty) < 1e-9) delete w.qty[i]; else w.qty[i] = n; }
+    forageEdited();
+  });
+  box.addEventListener("click", e => { const b = e.target.closest("[data-wsreset]"); if (b) { WS[b.dataset.wsreset] = wsFresh(); forageEdited(); } });
 }
 function about() {
   $("#ab-body").innerHTML = `
-  <p>These budgets start from last month's average prices; change any number to fit your farm. Prices update once a month. Nothing typed here is saved or sent anywhere.</p>
+  <p>These budgets start from ${D.month_label} average prices; any number can be changed. Prices update once a month. What you type is kept only in this browser and is not sent anywhere.</p>
   <h3>Where the numbers come from</h3>
   <ul>
-    <li><b>Cattle prices:</b> last month's Mississippi auction averages (USDA-AMS and the Mississippi Department of Agriculture and Commerce) by 100-lb weight class; a weight in between gets a price in between. For a sale in another month, the price moves by the usual 5-year seasonal pattern, which assumes the market as a whole doesn't change. Enter your own price if you expect a different one.</li>
+    <li><b>Cattle prices:</b> ${D.month_label} Mississippi auction averages (USDA-AMS and the Mississippi Department of Agriculture and Commerce) by 100-lb weight class; a weight in between gets a price in between. For a sale in another month, the price moves by the usual 5-year seasonal pattern, which assumes the market as a whole doesn't change.</li>
     <li><b>Fed cattle:</b> CME live cattle futures for the contract in or after the sale month, plus that month's average basis (5-area negotiated live steer price minus nearby futures). Heifers use the same price.</li>
-    <li><b>Pasture and hay:</b> MSU Extension's 2027 forage budgets, priced at the prices below.</li>
+    <li><b>Pasture and hay:</b> MSU Extension's 2027 forage budgets as printed, at the prices below; each line can be changed on the Forage costs tab.</li>
     <li><b>Feed, fertilizer, fuel, labor, rent, interest, vet and overhead:</b> the table below.</li>
     <li><b>Starting guesses:</b> herd performance, feeding rates, mineral price, labor hours, facilities, health costs, yardage, trucking, and freezer beef prices and processing have no public price series. Replace them with your own.</li>
   </ul>
   <h3>Your budget in past years</h3>
-  <p>Each budget tab ends with a chart of the same budget, with your herd, weights and feeding, priced at each past year's prices back to ${D.history ? D.history.meta.start.slice(0, 4) : "2011"}. Where Mississippi's auction record has gaps (2003–2005 for every class; heifers, the heaviest feeders and cull cows through 2010), those charts estimate the price from neighboring states' auctions, scaled to Mississippi's; tested on months Mississippi did report, the estimates came within about 3%. Input prices that started recently (fertilizer, local feed and hay, diesel, wages) are carried back with the closest older price. The further back, the rougher.</p>
+  <p>Each budget tab ends with a chart of the same budget, with your herd, weights and feeding, priced at each past year's prices (Cow-calf and Stocker chart the return over operating costs) back to ${D.history ? D.history.meta.start.slice(0, 4) : "2011"}. Where Mississippi's auction record has gaps (2003–2005 for every class; heifers, the heaviest feeders and cull cows through 2010), those charts estimate the price from neighboring states' auctions, scaled to Mississippi's; tested on months Mississippi did report, the estimates came within about 3%. Input prices that started recently (fertilizer, local feed and hay, diesel, wages) are carried back with the closest older price. The further back, the rougher.</p>
   <h3>Operating costs or all costs</h3>
-  <p>Operating costs are what you spend during the year: feed, pasture upkeep, vet, labor, fuel, repairs, marketing, rent and interest on operating money. All costs adds ownership costs: depreciation on facilities, machinery and bulls, forage establishment, overhead, taxes and insurance. Use operating costs when the land and equipment would be paid for either way, such as adding cattle to spare capacity; use all costs to see whether the cattle pay for everything over the long run. Net return is what is left for your own time, management and any land you own and don't charge rent for. In the cow-calf budget, a bull counts as 1.4 cows and a replacement heifer as 0.7 for pasture, hay and mineral.</p>
+  <p>Operating costs are what you spend during the year: feed, pasture upkeep, vet, labor, fuel, repairs, marketing, rent and interest on operating money. All costs adds ownership costs: depreciation on facilities, machinery and bulls, forage establishment, overhead, taxes and insurance. Operating costs shows whether the cattle cover what is spent during the year. All costs shows whether they also cover depreciation, overhead, taxes and insurance. Net return is what is left for your own time, management and any land you own and don't charge rent for. In the cow-calf budget, a bull counts as 1.4 cows and a replacement heifer as 0.7 for pasture, hay and mineral.</p>
   <h3>Cash flow</h3>
   <p>Cow-calf and Stocker can show the budget by month, with a running balance; its low point is about how much operating money you need. Set the months for fertilizer, seed, hay, supplement, vet work, rent, and taxes and insurance in the Full view. Mineral, labor, fuel and repairs are spread evenly, and costs that aren't paid out, such as depreciation, are left out.</p>
   <h3>Purchase payoff</h3>
-  <p>Follows a bred cow, bred heifer or bull bought now through its years in your herd: each year's calves (for a bull, the extra weaning weight) minus the cost of keeping it and expected death loss, plus its cull value at the end. Calf prices, weights, weaning rate and costs start from your Cow-calf budget. Net present value discounts each year at your interest rate; the most you can pay is the price that makes it zero. Today's calf prices are high by history, so test a lower one (the calf price note gives the 10-year average).</p>
+  <p>Follows a bred cow, bred heifer or bull bought now through its years in your herd: each year's calves (for a bull, the extra weaning weight) minus the cost of keeping it and expected death loss, plus its cull value at the end. Calf prices, weights, weaning rate and costs start from your Cow-calf budget. Net present value discounts each year at your interest rate; the break-even purchase price is the price that makes it zero.</p>
   <h3>Retained ownership and freezer beef</h3>
-  <p>Both charge your own calves at what they would bring at a Mississippi auction, so their net return is what feeding them out earns over selling them as calves. Freezer beef sold by the whole, half or quarter is sold before harvest, under the custom-exempt rules (packages stamped "Not for sale"); selling beef by the package needs a USDA- or state-inspected processor.</p>
+  <p>Both charge your own calves at what they would bring at a Mississippi auction, less commission, hauling and the checkoff, so their net return is the difference between feeding them out and selling them as calves. Rules for selling beef differ by how it is sold. Contact the Mississippi Department of Agriculture and Commerce for current requirements.</p>
   <p class="note">Prices last updated ${fdate(D.generated)}. Mississippi State University Extension.</p>`;
 }
 
 // ---------- app ----------
 let CCF, STF, ROF, FBF, PPF = null;
-function refreshAll() { [CCF, STF, ROF, FBF, PPF].forEach(f => update(f)); drawPrices(); drawForage(); }
-const TABS = ["cc", "pp", "st", "ro", "fb", "ab"];
+function refreshAll() { [CCF, STF, ROF, FBF, PPF].forEach(f => update(f)); drawPrices(); drawForageTab(); }
+// What the user types is kept in this browser (localStorage) so a refresh keeps it; Start over clears a
+// budget's own inputs. Storage can be off (private windows): the page works without it.
+const STORE = "msu-beef-budgets-v1";
+function saveState() {
+  if (!CCF || !STF || !ROF || !FBF || !PPF) return;          // still starting up
+  try {
+    const forms = {}, prices = {};
+    [CCF, STF, ROF, FBF, PPF].forEach(f => { forms[f.key] = { typed: f.typed, mode: f.mode }; });
+    Object.entries(D.prices).forEach(([k, p]) => { if (P[k] !== p.value) prices[k] = P[k]; });
+    localStorage.setItem(STORE, JSON.stringify({ forms, prices, forage: WS, report: REPORT }));
+  } catch (e) { /* storage unavailable */ }
+}
+function loadState() { try { return JSON.parse(localStorage.getItem(STORE) || "null"); } catch (e) { return null; } }
+const TABS = ["cc", "pp", "st", "ro", "fb", "fc", "ab"];
 // tab names in the address (Data_Forecasts/ADDRESS_STANDARD.md): plain words; the short codes used before 11/2026
 // and the old Prices used tab (#pr, now in How it works) keep opening their tab. Never rename a name.
-const ADDR = { cc: "cowcalf", pp: "payoff", st: "stocker", ro: "retained", fb: "freezer", ab: "about" };
+const ADDR = { cc: "cowcalf", pp: "payoff", st: "stocker", ro: "retained", fb: "freezer", fc: "forage", ab: "about" };
 const tabFor = h => { h = String(h || "").toLowerCase(); if (h === "pr") return "ab"; const k = Object.keys(ADDR).find(x => ADDR[x] === h); return k || h; };
 function showTab(t) {
   document.querySelectorAll(".tab").forEach(b => b.setAttribute("aria-selected", String(b.dataset.tab === t)));
@@ -1430,10 +1537,15 @@ fetch("data/prices.json").then(r => { if (!r.ok) throw new Error(r.status); retu
     $("#foot-gen").textContent = `Prices are ${D.month_label} averages. Page ${D.build ? `version ${D.build}, ` : ""}built ${ok ? ct({ month: "short", day: "numeric", year: "numeric" }) : D.generated.slice(0, 10)}${hm ? `, ${hm} CT` : ""}.`;
     $("#foot-year").textContent = ok ? ct({ year: "numeric" }) : D.generated.slice(0, 4);
   }
-  CCF = makeForm(CC, "cc"); STF = makeForm(ST, "st"); ROF = makeForm(RO, "ro"); FBF = makeForm(FB, "fb");
+  document.querySelectorAll("[data-month]").forEach(e => { e.textContent = D.month_label; });
+  const saved = loadState() || {};
+  Object.entries(saved.prices || {}).forEach(([k, x]) => { if (D.prices[k] && typeof x === "number") P[k] = x; });
+  Object.entries(saved.forage || {}).forEach(([k, w]) => { if (FORAGE_SYS.includes(k) && w) WS[k] = { ...wsFresh(), ...w }; });
+  Object.assign(REPORT, saved.report || {});
+  CCF = makeForm(CC, "cc"); STF = makeForm(ST, "st"); ROF = makeForm(RO, "ro"); FBF = makeForm(FB, "fb"); PPF = makeForm(PP, "pp");
   CCF.mode = STF.mode = "simple";
-  [CCF, STF, ROF, FBF].forEach(f => { render(f); update(f); });
-  PPF = makeForm(PP, "pp"); render(PPF); update(PPF);
+  [CCF, STF, ROF, FBF, PPF].forEach(f => { const g = (saved.forms || {})[f.key]; if (g) { Object.assign(f.typed, g.typed || {}); if (g.mode) f.mode = g.mode; } });
+  [CCF, STF, ROF, FBF, PPF].forEach(f => { render(f); update(f); });
   const PP_BY_KIND = ["head", "price", "years", "death", "cullwt", "cullp"];
   document.querySelectorAll("#pp-seg button").forEach(b => b.addEventListener("click", () => {
     PPF.typed.kind = b.dataset.kind; PP_BY_KIND.forEach(k => delete PPF.typed[k]); update(PPF);
@@ -1446,9 +1558,10 @@ fetch("data/prices.json").then(r => { if (!r.ok) throw new Error(r.status); retu
   })));
   document.querySelectorAll("[data-view-for]").forEach(seg => seg.querySelectorAll("button").forEach(b => b.addEventListener("click", () => showView(seg.dataset.viewFor, b.dataset.view))));
   document.querySelectorAll("#fb-seg button").forEach(b => b.addEventListener("click", () => { FBF.typed.sys = b.dataset.sys; update(FBF); }));
-  drawPrices(); drawForage(); about();
+  drawPrices(); drawForageTab(); wireForageTab(); about();
   document.querySelectorAll(".tab").forEach(b => b.addEventListener("click", () => showTab(b.dataset.tab)));
   ["cc", "st", "ro", "fb", "pp"].forEach(renderExports);
+  document.querySelectorAll("[data-rep]").forEach(inp => { inp.value = REPORT[inp.dataset.rep] || ""; inp.addEventListener("input", saveState); });
   document.querySelectorAll("[data-reset]").forEach(b => b.addEventListener("click", () => { const f = { cc: CCF, st: STF, ro: ROF, fb: FBF, pp: PPF }[b.dataset.reset]; f.reset(); update(f); }));
   const h = tabFor(location.hash.slice(1));
   showTab(TABS.includes(h) ? h : "cc");
@@ -1491,7 +1604,7 @@ fetch("data/prices.json").then(r => { if (!r.ok) throw new Error(r.status); retu
   const btn = document.getElementById("share-view"), msg = document.getElementById("share-msg");
   if (btn) {
     const say = t => { msg.textContent = t; btn.textContent = t; clearTimeout(btn._t);
-      btn._t = setTimeout(() => { btn.textContent = "Share this view"; msg.textContent = ""; }, 2500); };
+      btn._t = setTimeout(() => { btn.textContent = "Share this page"; msg.textContent = ""; }, 2500); };
     btn.addEventListener("click", async () => {
       const url = location.href;
       if (navigator.share && matchMedia("(pointer: coarse)").matches) {
