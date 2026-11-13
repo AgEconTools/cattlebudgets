@@ -206,6 +206,8 @@ details.hist-tbl summary { cursor: pointer; font-size: 13.5px; color: var(--link
 .btns { display: flex; gap: 8px; flex-wrap: wrap; }
 .btn { border: 1px solid var(--field-rule); background: var(--surface); border-radius: 999px; padding: 8px 14px; font-weight: 600; font-size: 14px; cursor: pointer; }
 .btn:hover { background: var(--accent-soft); }
+.reset-ask { margin-top: 10px; padding: 12px 14px; border: 1px solid var(--field-rule); border-radius: 10px; max-width: 60ch; }
+.reset-ask p { margin: 0 0 8px; font-weight: 600; }
 
 .prices td:nth-child(2) { white-space: nowrap; }
 .prices input { width: 7.5em; text-align: right; border: 1px solid var(--field-rule); border-radius: 6px; padding: 5px 7px; background: var(--field); font-variant-numeric: tabular-nums; }
@@ -493,7 +495,7 @@ footer .legal { display: grid; gap: 8px; margin-top: 18px; }
     <h2 id="disc-h">Disclaimer</h2>
     <p>For educational use only. These budgets are estimates for planning, built from public market prices and the numbers you enter. They are not a price quote, a forecast, or financial, lending, legal or marketing advice, and you use them at your own risk.</p>
     <details class="method"><summary>Full disclaimer</summary>
-      <p>Market reports can contain errors and may be late or revised. Starting numbers that have no public source are typical values, not your farm's; replace them with your own. Charts of past years use estimated prices for some early years (How it works explains which).</p>
+      <p>Market reports can contain errors and may be late or revised. Starting numbers that have no public source are starting guesses, not your farm's; replace them with your own. Charts of past years use estimated prices for some early years (How it works explains which).</p>
       <p>The information is provided as is, without warranty of any kind. You are responsible for decisions you make with it. This page is not affiliated with or endorsed by USDA or any other agency or market whose reports it uses.</p>
       <p>References to commercial products, trade names, or suppliers are made with the understanding that no endorsement is implied and that no discrimination against other products or suppliers is intended.</p>
     </details>
@@ -515,7 +517,7 @@ footer .legal { display: grid; gap: 8px; margin-top: 18px; }
   </div>
 </div></footer>
 
-<script src="budget.js?v=85a3421a6a"></script>
+<script src="budget.js?v=98839ecf75"></script>
 <script>
 "use strict";
 // the page: forms, tables, charts and tabs; the math is in budget.js
@@ -540,6 +542,16 @@ function render(st) {
     box.appendChild(det);
   }
 }
+// Pressing a button or link while the cursor is in a field fires the field's blur (and change) before the
+// press's click; redrawing then would replace what was pressed and the click would be lost (review of
+// version 21, item 1). Redraws caused by leaving a field wait until that click has run; by touch the click
+// comes after the finger lifts, so the wait lasts until the click or 700 ms.
+let PRESS = false; const PRESS_Q = [];
+function afterPress(fn) { if (PRESS) PRESS_Q.push(fn); else fn(); }
+function endPress() { PRESS = false; clearTimeout(endPress.t); PRESS_Q.splice(0).forEach(f => f()); }
+addEventListener("pointerdown", () => { PRESS = true; clearTimeout(endPress.t); }, true);
+["pointerup", "pointercancel"].forEach(t => addEventListener(t, () => { clearTimeout(endPress.t); endPress.t = setTimeout(endPress, 700); }, true));
+addEventListener("click", () => setTimeout(endPress, 0));     // window, bubbling: after the page's own click handlers
 function priceGroup(st, g) {
   const det = document.createElement("details");
   det.className = "grp"; det.dataset.prices = "1";
@@ -552,7 +564,7 @@ function priceGroup(st, g) {
     el.innerHTML = `<label for="${iid}">${p.label}</label><div class="in"><input type="number" inputmode="decimal" id="${iid}" step="any" min="0"><span class="u">${p.unit}</span></div><div class="src"></div>`;
     const inp = $("input", el);
     inp.addEventListener("input", () => { const n = parseFloat(inp.value); if (!isNaN(n)) { P[k] = n; refreshAll(); } });
-    inp.addEventListener("blur", () => sync(st));
+    inp.addEventListener("blur", () => afterPress(() => sync(st)));
     wrap.appendChild(el);
   });
   const rb = document.createElement("div"); rb.className = "f wide";
@@ -583,7 +595,7 @@ function field(st, f) {
     const inp = $("input", el);
     inp.addEventListener("input", () => { const n = parseFloat(inp.value); if (isNaN(n)) return;
       if (o.ws) return wsChanged(st, id, () => o.ws(n)); st.typed[id] = n; update(st, id); });
-    inp.addEventListener("blur", () => sync(st));
+    inp.addEventListener("blur", () => afterPress(() => sync(st)));
   }
   return el;
 }
@@ -677,14 +689,26 @@ function sensGrid(rowsDef, colsDef, fn, rowLabel, colLabel, neutral) {
   return h + "</tbody></table>";
 }
 
-// 3G: a price the state doesn't have shows a dash; one line under the tiles says which
-const NEED = { cc: [["sp", "steer calves"], ["hp", "heifer calves"], ["cp", "cull cows"], ["bp", "cull bulls"]],
-  st: [["p0", "the calves bought"], ["p1", "the feeders sold"]], ro: [["wp", "calves at weaning"]], fb: [["p0", "the calves"]], pp: [["cp", "calves"], ["cullp", "cull animals"]] };
+// A price the state has none of for the month is the average of its bordering states (review of version 21,
+// item 3); one line under the tiles names the prices a budget borrows, unless you typed your own.
+// [input, name, the states averaged]
+const BORROWED = {
+  cc: v => [["sp", "steer calves", borrowedFrom("Steers", v.swt)], ["hp", "heifer calves", borrowedFrom("Heifers", v.hwt)],
+            ["cp", "cull cows", borrowedFrom("cows")], ["bp", "cull bulls", borrowedFrom("bulls")]],
+  st: v => [["p0", "calves bought", borrowedFrom(v.cls, v.w0)], ["p1", "feeders sold", borrowedFrom(v.cls, stSaleWt(v))]],
+  ro: v => [["wp", "calves at weaning", borrowedFrom(v.cls, v.ww)]],
+  fb: v => [["p0", "calves", borrowedFrom(v.cls, v.w0)]],
+  pp: v => { const c = CCF.v, cc = BORROWED.cc(c).filter(([id, , f]) => f && !(id in CCF.typed)), on = ids => [...new Set(cc.filter(([id]) => ids.includes(id)).flatMap(x => x[2]))];
+    const calf = on(["sp", "hp"]), cull = on([isBull(v) ? "bp" : "cp"]);
+    return [["cp", "calves", calf.length ? calf : null], ["cullp", isBull(v) ? "cull bulls" : "cull cows", cull.length ? cull : null]]; },
+};
 function missingNote(st) {
   const el = $(`#${st.key}-miss`); if (!el) return;
-  const miss = (NEED[st.key] || []).filter(([id]) => !Number.isFinite(st.v[id])).map(([, name]) => name);
-  el.hidden = !miss.length;
-  el.textContent = miss.length ? `No ${STATE.name} auction price for ${D.month_label}: ${miss.join(", ")}. Enter one${st.mode ? " in the Full view" : ""} to see this budget.` : "";
+  const used = (BORROWED[st.key] ? BORROWED[st.key](st.v) : []).filter(([id, , from]) => from && !(id in st.typed));
+  const groups = [];
+  used.forEach(([, name, from]) => { const k = from.join(), g = groups.find(x => x.k === k); if (g) g.names.push(name); else groups.push({ k, from, names: [name] }); });
+  el.hidden = !groups.length;
+  el.textContent = groups.length ? `No ${STATE.name} price for ${D.month_label}: ${groups.map(g => `${andList(g.names)} use the average of ${andList(g.from)}`).join("; ")}.` : "";
 }
 function update(st, skip) {
   fill(st); sync(st, skip); missingNote(st);
@@ -978,7 +1002,7 @@ function reportModel(st) {
     sources: `${STATE.name} auction prices: USDA-AMS and the ${STATE.agency}. Pasture and hay: MSU Extension 2027 forage budgets. ` +
       "Other prices: USDA-AMS, USDA-NASS, USDA-ERS, BLS, the Federal Reserve Bank of Dallas and CME Group, as listed with each price.",
     disclaimer: "Prepared with the Mississippi State University Extension beef cattle budget tool (beta), using the producer's own numbers and public market prices. " +
-      "It is an estimate for planning, not a forecast of what any farm will earn. Starting numbers without a public source are typical values; replace them with your own." };
+      "It is an estimate for planning, not a forecast of what any farm will earn. Starting numbers without a public source are starting guesses; replace them with your own." };
 }
 // The forage worksheets a budget builds its cost per acre from, for the exports (1C2)
 const FORAGE_ROLES = {
@@ -1123,16 +1147,16 @@ async function buildXlsx(m) {
 
   if (m.forage.length) {         // the Forage costs worksheets this budget uses, each line a quantity-times-price formula
     const wf = wb.addWorksheet("Forage costs", { views: [{ showGridLines: false }] });
-    wf.columns = [{ width: 36 }, { width: 8 }, { width: 12 }, { width: 8 }, { width: 13 }, { width: 12 }, { width: 13 }, { width: 26 }];
+    wf.columns = [{ width: 36 }, { width: 12 }, { width: 8 }, { width: 13 }, { width: 12 }, { width: 13 }, { width: 26 }];
     m.forage.forEach(a => {
       wf.addRow([`${a.name} (MSU table ${a.table}), per acre`]).font = { bold: true, size: 12, color: { argb: MAROON } };
       wf.addRow([a.printed ? "MSU printed rates, establishment not charged" : "Changed from MSU's printed budget"]).font = { italic: true, size: 9 };
-      wf.addRow(["Item", "Used", "Quantity", "Unit", "MSU printed", "Price", "Per acre", "Price basis"]).font = { bold: true };
+      wf.addRow(["Item", "Quantity", "Unit", "MSU printed", "Price", "Per acre", "Price basis"]).font = { bold: true };
       const first = wf.rowCount + 1;
-      a.rows.forEach(r => { const x = wf.addRow([r.item + (r.part === "est" ? " (establishment)" : r.part === "fixed" ? " (machinery)" : ""), r.on ? "Yes" : "No", r.qty, r.unit, r.printed, r.price, null, r.how]);
-        x.getCell(7).value = { formula: `C${x.number}*F${x.number}`, result: r.cost }; x.getCell(6).numFmt = USD2; x.getCell(7).numFmt = USD2; x.getCell(3).numFmt = QTY; x.getCell(5).numFmt = QTY; });
-      const t = wf.addRow(["Total per acre", null, null, null, null, null, { formula: `SUM(G${first}:G${wf.rowCount})`, result: a.d + a.f }]);
-      t.font = { bold: true }; t.getCell(7).numFmt = USD2;
+      a.rows.filter(r => r.qty || r.cost).forEach(r => { const x = wf.addRow([r.item + (r.part === "est" ? " (establishment)" : r.part === "fixed" ? " (machinery)" : ""), r.qty, r.unit, r.printed, r.price, null, r.how]);
+        x.getCell(6).value = { formula: `B${x.number}*E${x.number}`, result: r.cost }; x.getCell(5).numFmt = USD2; x.getCell(6).numFmt = USD2; x.getCell(2).numFmt = QTY; x.getCell(4).numFmt = QTY; });
+      const t = wf.addRow(["Total per acre", null, null, null, null, { formula: `SUM(F${first}:F${wf.rowCount})`, result: a.d + a.f }]);
+      t.font = { bold: true }; t.getCell(6).numFmt = USD2;
       wf.addRow([]);
     });
   }
@@ -1538,10 +1562,10 @@ function wireForageTab() {
     else if (t.dataset.ws) { if (startsOff(sys, it)) { if (t.checked) w.on[i] = 1; else delete w.on[i]; } else if (t.checked) delete w.off[i]; else w.off[i] = 1; }
     else {
       const n = parseFloat(t.value);
-      if (isNaN(n) || n < 0) { drawForageTab(); return; }      // a blank or bad quantity goes back to what it was (2C5)
+      if (isNaN(n) || n < 0) { afterPress(drawForageTab); return; }      // a blank or bad quantity goes back to what it was (2C5)
       if (Math.abs(n - startQty(sys, it)) < 1e-9) delete w.qty[i]; else w.qty[i] = n;
     }
-    forageEdited();
+    afterPress(forageEdited);
   });
   box.addEventListener("click", e => { const b = e.target.closest("[data-wsreset]"); if (b) { WS[b.dataset.wsreset] = wsFresh(); forageEdited(); } });
 }
@@ -1570,7 +1594,9 @@ function about() {
   <p>Both charge your own calves at what they would bring at a ${STATE.name} auction, less commission, hauling and the checkoff, so their net return is the difference between feeding them out and selling them as calves. Rules for selling beef differ by how it is sold. ${STATE.code === "ms" ? "Contact the Meat Inspection Division of the Mississippi Department of Agriculture and Commerce for current requirements." : "Contact your state's department of agriculture for current requirements."}</p>
   <h3>Reset everything</h3>
   <p>Returns every budget, the forage worksheets and market prices to their starting values, and clears what this browser kept.</p>
-  <div class="btns"><button type="button" class="btn" id="reset-all">Reset everything</button></div>
+  <div class="btns"><button type="button" class="btn" id="reset-all" aria-controls="reset-ask">Reset everything</button></div>
+  <div class="reset-ask" id="reset-ask" role="group" aria-labelledby="reset-q" hidden><p id="reset-q" tabindex="-1">Clear every budget, the forage worksheets and your prices?</p>
+    <div class="btns"><button type="button" class="btn primary" id="reset-yes">Clear everything</button><button type="button" class="btn" id="reset-no">Keep them</button></div></div>
   <p class="note">Prices last updated ${fdate(D.generated)}. Mississippi State University Extension.</p>`;
 }
 
@@ -1796,7 +1822,12 @@ fetch("data/prices.json").then(r => { if (!r.ok) throw new Error(r.status); retu
   document.addEventListener("click", e => {             // "Build my pasture cost" (2B2)
     if (e.target.closest("[data-build-pasture]")) { CCF.typed.fcP = "build"; update(CCF); const q = $("#cc-wsN"); if (q) q.focus(); }
   });
-  document.addEventListener("click", e => { if (!e.target.closest("#reset-all")) return;      // 1A3 (How it works redraws)
+  document.addEventListener("click", e => {      // 1A3; asks once first (review of version 21, item 4). How it works redraws.
+    const ask = $("#reset-ask"); if (!ask) return;
+    if (e.target.closest("#reset-all")) { ask.hidden = false; $("#reset-q").focus(); return; }
+    if (e.target.closest("#reset-no")) { ask.hidden = true; $("#reset-all").focus(); return; }
+    if (!e.target.closest("#reset-yes")) return;
+    ask.hidden = true;
     forgetSaved(); resetShared();
     [CCF, STF, ROF, FBF, PPF].forEach(f => f.reset()); CCF.mode = STF.mode = "simple";
     document.querySelectorAll("[data-rep]").forEach(inp => { inp.value = ""; });

@@ -150,6 +150,10 @@ function pastureCow(v) {
   const a = acreCost(v, "P", v.psys);
   return v.acres * (a.d + a.f) + (v.chrent ? v.acres * v.rent : 0);
 }
+// At its rental value (ERS) the permanent pasture's cost is a flat amount per cow: its acres and rent don't
+// enter the budget, so those inputs show only once the pasture is built, or rent has other ground to cover.
+const ccErs = v => (v.fcP || "ers") === "ers";
+const ccRentUsed = v => !ccErs(v) || v.haysrc === "raise" || (v.wacres > 0 && v.wsys === "ryegrass");
 function pastureBox(v) {
   const avg = `${usd(P.grazed_feed, 2)} per cow`;
   if ((v.fcP || "ers") === "ers")
@@ -178,16 +182,16 @@ const CC = [
     ["hp", "Heifer calf price", "$/cwt", v => slide("Heifers", v.hwt) * (v.season ? seasonAdj("Heifers", v.hwt, v.month) : 1), { simple: true, step: 1, src: v => calfSrc("Heifers", v.hwt, v) }],
     ["cgrade", "Cull cow grade", "", () => D.cattle.cows["Boner 80-85%"] ? "Boner 80-85%" : (Object.keys(D.cattle.cows)[0] || ""),
       { select: () => Object.keys(D.cattle.cows).length ? Object.keys(D.cattle.cows).map(k => [k, k]) : [["", "No cull cow price this month"]] }],
-    ["cwt_", "Cull cow weight", "lb", v => (D.cattle.cows[v.cgrade] || {}).weight ?? 1200, { step: 10, src: () => `Average weight sold at ${STATE.name} auctions` }],
+    ["cwt_", "Cull cow weight", "lb", v => (D.cattle.cows[v.cgrade] || {}).weight ?? 1200, { step: 10, src: () => { const f = borrowedFrom("cows"); return `Average weight sold at ${f ? andList(f) : STATE.name} auctions`; } }],
     ["cp", "Cull cow price", "$/cwt", v => (D.cattle.cows[v.cgrade] || {}).price ?? NaN, { step: 1,
-      src: v => D.cattle.cows[v.cgrade] ? `${STATE.name} auctions, ${v.cgrade}, ${cattleWeeks()}` : `No ${STATE.name} cull cow price for ${D.month_label}` }],
+      src: v => !D.cattle.cows[v.cgrade] ? `No ${STATE.name} cull cow price for ${D.month_label}` : borrowedFrom("cows") ? `${borrowNote(borrowedFrom("cows"))} ${v.cgrade}.` : `${STATE.name} auctions, ${v.cgrade}, ${cattleWeeks()}` }],
     ["byears", "Years each bull is used", "years", 4, { step: 1 }],
     ["bwt", "Cull bull weight", "lb", 1800, { step: 50 }],
     ["bp", "Cull bull price", "$/cwt", () => D.cattle.bulls.price ?? NaN, { step: 1,
-      src: () => D.cattle.bulls.price != null ? `${STATE.name} auctions, slaughter bulls, ${cattleWeeks()}` : `No ${STATE.name} slaughter bull price for ${D.month_label}` }],
+      src: () => D.cattle.bulls.price == null ? `No ${STATE.name} slaughter bull price for ${D.month_label}` : borrowedFrom("bulls") ? borrowNote(borrowedFrom("bulls")) : `${STATE.name} auctions, slaughter bulls, ${cattleWeeks()}` }],
   ]},
   { g: "Pasture and hay", open: true, f: [
-    ["acres", "Pasture acres per cow", "acres", 2.5, { simple: true, step: .1, src: () => "Includes ground for bulls and replacement heifers" }],
+    ["acres", "Pasture acres per cow", "acres", 2.5, { simple: true, step: .1, show: v => !ccErs(v), src: () => "Includes ground for bulls and replacement heifers" }],
     ["psys", "Pasture", "", "pasture", { wide: true, select: () => [["pasture", SYSTEMS.pasture]] }],
     ["wacres", "Winter annual pasture per cow", "acres", 0, { step: .1 }],
     ["wsys", "Winter annual", "", "overseed", { wide: true, show: v => v.wacres > 0, select: () => [["overseed", SYSTEMS.overseed], ["ryegrass", SYSTEMS.ryegrass]] }],
@@ -202,8 +206,8 @@ const CC = [
     ["hyield", "Hay yield", "tons/acre", 3, { step: .25, show: v => v.haysrc === "raise" }],
     ...forageFields("H", "Hay ground", () => "hay", v => v.haysrc === "raise"),
     ["hayp", HAY_LABEL, "$/ton", () => P.hay_market, { simple: true, step: 1, show: v => v.haysrc === "buy", src: () => priceSrc("hay_market") }],
-    ["chrent", "Charge rent on pasture and hay ground", "", 1, { simple: true, check: true }],
-    ["rent", "Pasture rent you pay", "$/acre", () => P.rent, { simple: true, step: 1, show: v => v.chrent, src: () => priceSrc("rent") }],
+    ["chrent", "Charge rent on pasture and hay ground", "", 1, { simple: true, check: true, show: ccRentUsed }],
+    ["rent", "Pasture rent you pay", "$/acre", () => P.rent, { simple: true, step: 1, show: v => ccRentUsed(v) && v.chrent, src: () => priceSrc("rent") }],
   ]},
   { g: "Feed and mineral", f: [
     ["feed", "Supplement", "", "soyhulls", { wide: true, select: () => FEEDS.filter(([k]) => P[k] != null).map(([k, n]) => [k, n]) }],
@@ -475,11 +479,24 @@ FB.push({ g: "Market prices", prices: ["corn", "soyhulls", "cgf", "csm", ...FERT
 const FNAME = { pasture: "Permanent pasture", hay: "Hay ground", ryegrass: "No-till ryegrass", overseed: "Overseeded ryegrass" };
 
 function cattleWeeks() { return `${D.month_label} average`; }   // the month the page's prices cover
+// A price the state has none of for the month is the average of its bordering states (tools/export_budget.py,
+// borrow()). borrowedFrom gives the states averaged, or null: what is "Steers", "Heifers", "cows" or "bulls";
+// for a class, wt picks the classes the price at that weight is read from.
+function borrowedFrom(what, wt) {
+  const b = (D.cattle.borrowed || {})[what]; if (!b) return null;
+  if (wt != null && b.classes) { const w = Math.min(850, Math.max(350, wt)); if (!b.classes.some(lo => Math.abs(w - (lo + 50)) < 100)) return null; }
+  return b.from;
+}
+const andList = a => a.length < 3 ? a.join(" and ") : `${a.slice(0, -1).join(", ")} and ${a[a.length - 1]}`;
+const borrowNote = from => `No ${STATE.name} price for ${D.month_label}; average of ${andList(from)}.`;
 function calfSrc(cls, wt, v, month) {
   const m = month == null ? v.month : month;
   if (!Number.isFinite(slide(cls, wt))) return `No ${STATE.name} auction price for ${cls.toLowerCase()} in ${D.month_label}`;   // 3G
+  const from = borrowedFrom(cls, wt), adj = v.season && m !== nowMonth() ? seasonAdj(cls, wt, m) : null;
+  const pct = a => `${a >= 1 ? "+" : "−"}${num(Math.abs(a - 1) * 100, 1)}% for ${MONTHS_LONG[m]} (5-year seasonal pattern)`;
+  if (from) return borrowNote(from) + (adj != null ? ` ${pct(adj)}.` : "");
   let s = `${STATE.name} auctions, ${cls.toLowerCase()} at ${num(wt)} lb: ${usd(slide(cls, wt), 2)}/cwt, ${cattleWeeks()}`;
-  if (v.season && m !== nowMonth()) { const a = seasonAdj(cls, wt, m); s += `; ${a >= 1 ? "+" : "−"}${num(Math.abs(a - 1) * 100, 1)}% for ${MONTHS_LONG[m]} (5-year seasonal pattern)`; }
+  if (adj != null) s += `; ${pct(adj)}`;
   if (wt < 350 || wt > 850) s += `. Outside the weights ${STATE.name} auctions report; price held at the nearest class`;
   return s + thinNote(cls, wt);
 }
@@ -532,7 +549,7 @@ function cowCalf(v) {
   const weaned = N * v.wean / 100, steers = weaned / 2, repl = N * (v.cull + v.death) / 100;
   const heifers = Math.max(0, weaned / 2 - repl), culls = N * v.cull / 100, cbulls = B / v.byears;
   const units = N + 1.4 * B + 0.7 * repl;                 // pasture and hay animal units
-  const rows = [], add = (sec, item, qty, unit, price, total, note) => rows.push({ sec, item, qty, unit, price, total, note });
+  const rows = [], add = (sec, item, qty, unit, price, total, note) => (qty === 0 && total === 0) || rows.push({ sec, item, qty, unit, price, total, note });
   const R = "Income", O = "Operating costs", F = "Ownership costs";
   add(R, "Steer calves", steers, "head", v.swt * v.sp / 100, steers * v.swt * v.sp / 100, `${num(v.swt)} lb at ${usd(v.sp, 2)}/cwt`);
   add(R, "Heifer calves", heifers, "head", v.hwt * v.hp / 100, heifers * v.hwt * v.hp / 100, `${num(v.hwt)} lb at ${usd(v.hp, 2)}/cwt`);
@@ -602,7 +619,7 @@ function bullKeep(v) {
 // ---------- stocker budget ----------
 function stocker(v) {
   const H = v.head, w1 = stSaleWt(v), sold = H * (1 - v.death / 100);
-  const rows = [], add = (sec, item, qty, unit, price, total, note) => rows.push({ sec, item, qty, unit, price, total, note });
+  const rows = [], add = (sec, item, qty, unit, price, total, note) => (qty === 0 && total === 0) || rows.push({ sec, item, qty, unit, price, total, note });
   const R = "Income", O = "Operating costs", F = "Ownership costs";
   const income = sold * w1 * v.p1 / 100;
   add(R, `Feeder ${v.cls.toLowerCase()} sold`, sold, "head", w1 * v.p1 / 100, income, `${num(w1)} lb at ${usd(v.p1, 2)}/cwt after ${num(v.death, 1)}% death loss`);
@@ -654,7 +671,7 @@ function maxBuy(v) {   // purchase price that breaks even: net is linear in it
 // ---------- retained ownership budget ----------
 function retained(v) {
   const H = v.head, r = roDates(v), sold = H * (1 - v.death / 100), t = r.dof / 365;
-  const rows = [], add = (sec, item, qty, unit, price, total, note) => rows.push({ sec, item, qty, unit, price, total, note });
+  const rows = [], add = (sec, item, qty, unit, price, total, note) => (qty === 0 && total === 0) || rows.push({ sec, item, qty, unit, price, total, note });
   const R = "Income", O = "Operating costs";
   const income = sold * v.outwt * v.sp / 100;
   add(R, `Fed ${v.cls.toLowerCase()} sold`, sold, "head", v.outwt * v.sp / 100, income, `${num(v.outwt)} lb at ${usd(v.sp, 2)}/cwt after ${num(v.death, 2)}% death loss`);
@@ -689,7 +706,7 @@ function retained(v) {
 function freezer(v) {
   const H = v.head, days = fbDays(v), t = days / 365, sold = H * (1 - v.death / 100);
   const hang = v.w1 * v.dress / 100, lbs = sold * hang, s = shares(v);
-  const rows = [], add = (sec, item, qty, unit, price, total, note) => rows.push({ sec, item, qty, unit, price, total, note });
+  const rows = [], add = (sec, item, qty, unit, price, total, note) => (qty === 0 && total === 0) || rows.push({ sec, item, qty, unit, price, total, note });
   const R = "Income", O = "Operating costs", F = "Ownership costs";
   [["halves", s.h, v.ph, 2], ["quarters", s.q, v.pq, 4], ["wholes", s.w, v.pw, 1]].forEach(([name, sh, pr, n]) => {
     if (sh <= 0) return;
@@ -909,7 +926,7 @@ function payoff(v) {
     years.push({ t, alive: start, calves: calvesT, income: incT, cost: costT, salvage: salvT, net, cum });
   }
   const npv = pv - buy, interest = (cum - npv);
-  const rows = [], add = (sec, item, qty, unit, price, total, note) => rows.push({ sec, item, qty, unit, price, total: total * H, note });
+  const rows = [], add = (sec, item, qty, unit, price, total, note) => (qty === 0 && total === 0) || rows.push({ sec, item, qty, unit, price, total: total * H, note });
   const R = "Income", O = "Operating costs", F = "Ownership costs", label = bull ? "bull" : "cow";
   if (bull) { if (v.epd) add(R, "Extra calf value from his genetics", calves * H, "calves", v.epd / 100 * v.cp * (1 - c), inc, `${num(v.epd)} lb per calf at ${usd(v.cp, 2)}/cwt`); }
   else add(R, "Calves sold", calves * H, "calves", calfNet, inc, `${num(v.cwt)} lb at ${usd(v.cp, 2)}/cwt over ${L} years, less commission and hauling`);
