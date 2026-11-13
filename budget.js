@@ -257,11 +257,11 @@ const ST = [
     ["cover", "Costs the cattle must cover", "", "all", { show: () => false, select: [["all", "All costs, including fixed"], ["op", "Operating costs only"]] }],   // set by the switch above the results
     ["head", "Head bought", "head", 60, { simple: true, step: 1 }],
     ["cls", "Steers or heifers", "", "Steers", { simple: true, select: [["Steers", "Steers"], ["Heifers", "Heifers"]] }],
-    ["bmonth", "Month bought", "", 10, { simple: true, select: MONTHS_LONG.map((m, i) => [i, m]) }],   // November: ryegrass is ready; 140 days sells them in early April
+    ["bmonth", "Month bought", "", 10, { simple: true, select: MONTHS_LONG.map((m, i) => [i, m]) }],   // November: ryegrass is ready; 180 days sells them in May, after the spring growth
     ["season", "Adjust prices for the usual seasonal pattern", "", 1, { check: true }],
     ["w0", "Purchase weight", "lb", 450, { simple: true, step: 10 }],
     ["p0", "Purchase price", "$/cwt", v => slide(v.cls, v.w0) * (v.season ? seasonAdj(v.cls, v.w0, v.bmonth) : 1), { simple: true, step: 1, src: v => calfSrc(v.cls, v.w0, v, v.bmonth) }],
-    ["days", "Days owned", "days", 140, { simple: true, step: 5 }],
+    ["days", "Days owned", "days", 180, { simple: true, step: 5 }],
     ["adg", "Average daily gain", "lb/day", 2, { simple: true, step: .1 }],
     ["sshrink", "Sale shrink", "%", 2, { step: .5, src: () => "Pay weight is the weight on pasture less this shrink" }],
     ["death", "Death loss", "%", 2, { step: .5 }],
