@@ -8,6 +8,11 @@ const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov
 const MONTHS_LONG = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 let D = null;            // the price file
 const P = {};            // prices in use (live unless the user typed one)
+// The state whose auction prices, rent and wage the budgets use, and the USDA-ERS cow-calf
+// region for vet, overhead, the pasture rental value and the comparison (stage 3). The page
+// sets them; REGION_YEARS holds a region's values by year for past years (null: the price file's own).
+let STATE = { code: "ms", name: "Mississippi", agency: "Mississippi Department of Agriculture and Commerce", region: "mississippi_portal" };
+let REGION = "mississippi_portal", REGION_YEARS = null;
 
 // ---------- formatting ----------
 // a result that isn't a finite number (no cows, no years, all the hay lost) shows a dash, never $NaN or $∞
@@ -19,8 +24,9 @@ const fmonth = s => { const [y, m] = s.split("-").map(Number); return `${MONTHS_
 const pdate = p => p.when || fdate(p.date);
 
 // ---------- cattle prices ----------
-function slide(cls, wt) {           // Mississippi auction price, $/cwt, at a weight
-  const pts = D.cattle.slide[cls];
+function slide(cls, wt) {           // the state's auction price, $/cwt, at a weight; NaN when it has none (3G)
+  const pts = ((D.cattle.slide || {})[cls] || []).filter(p => p && p[1] != null);
+  if (!pts.length) return NaN;
   if (wt <= pts[0][0]) return pts[0][1];
   if (wt >= pts[pts.length - 1][0]) return pts[pts.length - 1][1];
   for (let i = 1; i < pts.length; i++) if (wt <= pts[i][0]) {
@@ -42,9 +48,14 @@ function seasonAdj(cls, wt, toMonth, fromMonth = nowMonth()) {
 // ones. The worksheets are shared by every budget, as Market prices are.
 const FORAGE_SYS = ["pasture", "hay", "ryegrass", "overseed"];
 const EST_RE = /^Prorated establishment/;
-// The overseeded ryegrass sheet holds only what the ryegrass adds to the permanent
-// pasture (MSU table 11): its phosphate, potash and soil test start off.
-const FORAGE_OFF = { overseed: /^(Phosphate|Potash|Soil testing)/ };
+// The overseeded ryegrass sheet (MSU table 30, a full-year budget for the overseeded pasture)
+// holds what the ryegrass adds over the permanent pasture (table 11): its soil test (shared
+// with table 11) starts off, and phosphate and potash start at table 30's rates less table
+// 11's (2.0 - 1.0 and 1.5 - 1.0 cwt). Pending forage specialist review (2C2).
+const FORAGE_OFF = { overseed: /^Soil testing/ };
+const FORAGE_QTY = { overseed: [[/^Phosphate/, 1.0], [/^Potash/, 0.5]] };
+const startQty = (sys, it) => { const q = (FORAGE_QTY[sys] || []).find(([re]) => re.test(it.item)); return q ? q[1] : it.qty; };
+const startNote = (sys, it) => (FORAGE_QTY[sys] || []).some(([re]) => re.test(it.item)) ? "added over permanent pasture" : "";
 const WS = {};                 // per practice: { off: {line: 1}, on: {line: 1}, qty: {line: n}, est: 0 or 1 }
 function wsLines(sys) {
   const S = D.forage.systems[sys];
@@ -69,8 +80,9 @@ function forageAcre(sys, how = "build") {
   const S = D.forage.systems[sys], w = how === "build" ? ws(sys) : null;
   const rows = wsLines(sys).map((it, i) => {
     const on = w ? lineOn(sys, it, i, w) : true, p = linePrice(it);
-    const qty = on ? (w && i in w.qty ? w.qty[i] : it.qty) : 0;
-    return { i, item: it.item, unit: it.unit, part: it.part, printed: it.qty, qty, on, price: p.price, how: p.how, cost: qty * p.price };
+    const qty = on ? (w ? (i in w.qty ? w.qty[i] : startQty(sys, it)) : it.qty) : 0;
+    return { i, item: it.item, unit: it.unit, part: it.part, printed: it.qty, start: startQty(sys, it), note: startNote(sys, it),
+             qty, on, price: p.price, how: p.how, cost: qty * p.price };
   });
   const sum = parts => rows.filter(r => parts.includes(r.part)).reduce((t, r) => t + r.cost, 0);
   return { name: S.name, table: S.table, rows, direct: rows.filter(r => r.part === "direct"), fixed: rows.filter(r => r.part !== "direct"),
@@ -79,14 +91,20 @@ function forageAcre(sys, how = "build") {
 // A budget's cost per acre for one forage: the worksheet, MSU's printed budget, or the
 // user's own number (an operating cost, held at that number in past years).
 const FC_OPTS = [["build", "Build it from what I do (Forage costs tab)"], ["msu", "MSU budget as printed"], ["own", "My own number ($/acre)"]];
+// Cow-calf's permanent pasture starts at USDA-ERS grazed feed, "the rental value of pasture"
+// (ERR-321): a flat amount per cow that replaces both pasture upkeep and pasture rent (2A).
+const FC_ERS = ["ers", "Pasture at its rental value (USDA-ERS regional average), $ per cow"];
 function acreCost(v, role, sys) {
   const how = v["fc" + role] || "build";
+  if (how === "ers") return { d: 0, f: 0, how, name: FNAME[sys] };
   if (how === "own") { const x = v["fu" + role]; return { d: x, f: 0, how, name: FNAME[sys] }; }
   return { ...forageAcre(sys, how), how };
 }
 const acreNote = a => a.how === "own" ? "Your number per acre" : a.how === "msu" ? `MSU 2027 budget as printed, ${D.month_label} average prices` : `Forage costs tab, ${D.month_label} average prices`;
+const ersYear = () => D.prices.grazed_feed ? D.prices.grazed_feed.when : "";
 function fcSrc(v, role, sys) {
   const a = acreCost(v, role, sys);
+  if (a.how === "ers") return `USDA-ERS grazed feed, the rental value of pasture: ${usd(P.grazed_feed, 2)} per cow, ${ersYear()}. It replaces pasture upkeep and pasture rent.`;
   if (a.how === "own") return "Counted as an operating cost; past years hold it at this number";
   return `${usd(a.d, 2)}/acre to run, ${usd(a.f, 2)}/acre machinery${a.est ? " and establishment" : ""}. <a href="#forage">Forage costs tab</a>`;
 }
@@ -94,30 +112,49 @@ function fcSrc(v, role, sys) {
 const wsIdx = (sys, re) => wsLines(sys).findIndex(it => re.test(it.item));
 const N_PER_CWT = 46;                         // lb of nitrogen in a hundredweight of urea (46-0-0)
 function wsN() { const i = wsIdx("pasture", /^Nitrogen/), it = wsLines("pasture")[i], w = ws("pasture"); return lineOn("pasture", it, i) ? (i in w.qty ? w.qty[i] : it.qty) * N_PER_CWT : 0; }
-function setWsN(lb) { const i = wsIdx("pasture", /^Nitrogen/), w = ws("pasture"); delete w.off[i]; w.qty[i] = Math.max(0, lb) / N_PER_CWT; }
+function setWsN(lb) {
+  if (Math.abs(lb - wsN()) < 0.5) return;       // the rounded number already shown (98 for 98.44 lb) changes nothing (2C4)
+  const i = wsIdx("pasture", /^Nitrogen/), w = ws("pasture"); delete w.off[i]; w.qty[i] = Math.max(0, lb) / N_PER_CWT;
+}
 const PK_RE = /^(Phosphate|Potash)/, WEED_RE = /^(GrazonNext|Surfactant)/;
 function wsHas(re) { const L = wsLines("pasture"); return L.some((it, i) => re.test(it.item) && lineOn("pasture", it, i)); }
 function wsSet(re, on) { const w = ws("pasture"); wsLines("pasture").forEach((it, i) => { if (re.test(it.item)) { if (on) delete w.off[i]; else w.off[i] = 1; } }); }
+// no nitrogen, phosphate or potash: no fertilizer to spread, so the truck spreading goes too (2C3)
+const SPREAD_RE = /^Custom spread \(truck\)/;
+function spreadRule() { wsSet(SPREAD_RE, !(wsN() === 0 && !wsHas(PK_RE))); }
 
 // ---------- input forms ----------
 // A field: [id, label, unit, default, opts]. default may be a function of the
 // current values (v) so it follows the market until the user types a number.
 const HAY_LABEL = "Hay price (market report; add delivery)";
 // The cost-per-acre choice for one forage in a budget, and the user's own number.
-function forageFields(role, name, sysOf, show = () => true) {
+function forageFields(role, name, sysOf, show = () => true, ers = false) {
   return [
-    ["fc" + role, `${name} cost per acre`, "", "build", { wide: true, html: true, show, select: FC_OPTS, src: v => fcSrc(v, role, sysOf(v)) }],
+    ["fc" + role, `${name} cost`, "", ers ? "ers" : "build", { wide: true, html: true, show, select: ers ? [FC_ERS, ...FC_OPTS] : FC_OPTS, src: v => fcSrc(v, role, sysOf(v)) }],
     ["fu" + role, `${name}, your cost`, "$/acre", v => { const a = forageAcre(sysOf(v)); return Math.round((a.d + a.f) * 100) / 100; },
       { step: 1, show: v => show(v) && v["fc" + role] === "own" }],
   ];
 }
-// Simple view's three permanent pasture questions; they write to the Forage costs worksheet.
-function pastureQuestions(show) {
+// The three permanent pasture questions; they write to the Forage costs worksheet.
+// Cow-calf asks them in both views once its pasture is built from the worksheet (2B2);
+// Stocker asks them in Simple view.
+function pastureQuestions(show, simpleOnly = true) {
   return [
-    ["wsN", "Nitrogen on permanent pasture", "lb N/acre", () => Math.round(wsN()), { simple: true, simpleOnly: true, step: 5, show, ws: x => setWsN(x) }],
-    ["wsPK", "Phosphate and potash applied to permanent pasture", "", () => wsHas(PK_RE) ? 1 : 0, { simple: true, simpleOnly: true, check: true, show, ws: x => wsSet(PK_RE, !!x) }],
-    ["wsWeed", "Weeds sprayed on permanent pasture", "", () => wsHas(WEED_RE) ? 1 : 0, { simple: true, simpleOnly: true, check: true, show, ws: x => wsSet(WEED_RE, !!x) }],
+    ["wsN", "Nitrogen on permanent pasture", "lb N/acre", () => Math.round(wsN()), { simple: true, simpleOnly, step: 5, show, ws: x => { setWsN(x); spreadRule(); } }],
+    ["wsPK", "Phosphate and potash applied to permanent pasture", "", () => wsHas(PK_RE) ? 1 : 0, { simple: true, simpleOnly, check: true, show, ws: x => { wsSet(PK_RE, !!x); spreadRule(); } }],
+    ["wsWeed", "Weeds sprayed on permanent pasture", "", () => wsHas(WEED_RE) ? 1 : 0, { simple: true, simpleOnly, check: true, show, ws: x => wsSet(WEED_RE, !!x) }],
   ];
+}
+// Cow-calf's pasture line in both views: the regional average and the way to build your own (2B)
+function pastureCow(v) {
+  const a = acreCost(v, "P", v.psys);
+  return v.acres * (a.d + a.f) + (v.chrent ? v.acres * v.rent : 0);
+}
+function pastureBox(v) {
+  const avg = `${usd(P.grazed_feed, 2)} per cow`;
+  if ((v.fcP || "ers") === "ers")
+    return `Regional average: ${avg} (USDA-ERS, ${ersYear()}). Not your farm. <button type="button" class="btn" data-build-pasture>Build my pasture cost</button>`;
+  return `Yours: ${usd(pastureCow(v), 2)} per cow. Regional average: ${usd(P.grazed_feed, 2)}. <a href="#forage">Forage costs tab</a>`;
 }
 const FEEDS = [["soyhulls", "Soybean hull pellets"], ["cottonseed", "Whole cottonseed"], ["cgf", "Corn gluten feed pellets"], ["corn", "Shelled corn"], ["csm", "Cottonseed meal (41%)"]];
 const SYSTEMS = { pasture: "Permanent pasture (bahia, bermuda)", ryegrass: "Ryegrass, no-till", overseed: "Ryegrass overseeded on bermuda/bahia" };
@@ -139,20 +176,24 @@ const CC = [
     ["season", "Adjust prices for the usual seasonal pattern", "", 1, { check: true }],
     ["sp", "Steer calf price", "$/cwt", v => slide("Steers", v.swt) * (v.season ? seasonAdj("Steers", v.swt, v.month) : 1), { simple: true, step: 1, src: v => calfSrc("Steers", v.swt, v) }],
     ["hp", "Heifer calf price", "$/cwt", v => slide("Heifers", v.hwt) * (v.season ? seasonAdj("Heifers", v.hwt, v.month) : 1), { simple: true, step: 1, src: v => calfSrc("Heifers", v.hwt, v) }],
-    ["cgrade", "Cull cow grade", "", "Boner 80-85%", { select: () => Object.keys(D.cattle.cows).map(k => [k, k]) }],
-    ["cwt_", "Cull cow weight", "lb", v => D.cattle.cows[v.cgrade].weight, { step: 10, src: () => "Average weight sold at Mississippi auctions" }],
-    ["cp", "Cull cow price", "$/cwt", v => D.cattle.cows[v.cgrade].price, { step: 1, src: v => `Mississippi auctions, ${v.cgrade}, ${cattleWeeks()}` }],
+    ["cgrade", "Cull cow grade", "", () => D.cattle.cows["Boner 80-85%"] ? "Boner 80-85%" : (Object.keys(D.cattle.cows)[0] || ""),
+      { select: () => Object.keys(D.cattle.cows).length ? Object.keys(D.cattle.cows).map(k => [k, k]) : [["", "No cull cow price this month"]] }],
+    ["cwt_", "Cull cow weight", "lb", v => (D.cattle.cows[v.cgrade] || {}).weight ?? 1200, { step: 10, src: () => `Average weight sold at ${STATE.name} auctions` }],
+    ["cp", "Cull cow price", "$/cwt", v => (D.cattle.cows[v.cgrade] || {}).price ?? NaN, { step: 1,
+      src: v => D.cattle.cows[v.cgrade] ? `${STATE.name} auctions, ${v.cgrade}, ${cattleWeeks()}` : `No ${STATE.name} cull cow price for ${D.month_label}` }],
     ["byears", "Years each bull is used", "years", 4, { step: 1 }],
     ["bwt", "Cull bull weight", "lb", 1800, { step: 50 }],
-    ["bp", "Cull bull price", "$/cwt", () => D.cattle.bulls.price, { step: 1, src: () => `Mississippi auctions, slaughter bulls, ${cattleWeeks()}` }],
+    ["bp", "Cull bull price", "$/cwt", () => D.cattle.bulls.price ?? NaN, { step: 1,
+      src: () => D.cattle.bulls.price != null ? `${STATE.name} auctions, slaughter bulls, ${cattleWeeks()}` : `No ${STATE.name} slaughter bull price for ${D.month_label}` }],
   ]},
   { g: "Pasture and hay", open: true, f: [
     ["acres", "Pasture acres per cow", "acres", 2.5, { simple: true, step: .1, src: () => "Includes ground for bulls and replacement heifers" }],
     ["psys", "Pasture", "", "pasture", { wide: true, select: () => [["pasture", SYSTEMS.pasture]] }],
     ["wacres", "Winter annual pasture per cow", "acres", 0, { step: .1 }],
     ["wsys", "Winter annual", "", "overseed", { wide: true, show: v => v.wacres > 0, select: () => [["overseed", SYSTEMS.overseed], ["ryegrass", SYSTEMS.ryegrass]] }],
-    ...forageFields("P", "Permanent pasture", v => v.psys),
-    ...pastureQuestions(v => (v.fcP || "build") === "build"),
+    ...forageFields("P", "Permanent pasture", v => v.psys, () => true, true),
+    ["_pasture", "calc", v => pastureBox(v), { simple: true, html: true }],
+    ...pastureQuestions(v => v.fcP === "build", false),
     ...forageFields("W", "Winter annual", v => v.wsys, v => v.wacres > 0),
     ["hayday", "Hay fed per cow per day", "lb", 28, { step: 1 }],
     ["haydays", "Days hay is fed", "days", 110, { simple: true, step: 5 }],
@@ -162,8 +203,7 @@ const CC = [
     ...forageFields("H", "Hay ground", () => "hay", v => v.haysrc === "raise"),
     ["hayp", HAY_LABEL, "$/ton", () => P.hay_market, { simple: true, step: 1, show: v => v.haysrc === "buy", src: () => priceSrc("hay_market") }],
     ["chrent", "Charge rent on pasture and hay ground", "", 1, { simple: true, check: true }],
-    ["county", "Rent from", "", "", { simple: true, wide: true, select: () => [["", `Mississippi average (${usd(P.rent)}/acre, ${D.prices.rent.when})`]].concat(D.counties.map(c => [c.name, `${c.name} County (${usd(c.value, c.value % 1 ? 2 : 0)}, ${c.year})`])), show: v => v.chrent }],
-    ["rent", "Pasture rent", "$/acre", v => v.county ? D.counties.find(c => c.name === v.county).value : P.rent, { simple: true, step: 1, show: v => v.chrent, src: v => v.county ? `USDA-NASS county cash rent, ${D.counties.find(c => c.name === v.county).year}` : priceSrc("rent") }],
+    ["rent", "Pasture rent you pay", "$/acre", () => P.rent, { simple: true, step: 1, show: v => v.chrent, src: () => priceSrc("rent") }],
   ]},
   { g: "Feed and mineral", f: [
     ["feed", "Supplement", "", "soyhulls", { wide: true, select: () => FEEDS.filter(([k]) => P[k] != null).map(([k, n]) => [k, n]) }],
@@ -188,9 +228,9 @@ const CC = [
     ["rate", "Interest rate", "%", () => P.op_rate, { step: .05, src: () => rateSrc() }],
   ]},
   { g: "Ownership costs", f: [
-    ["fac", "Pens, chute, fence, water, trailer per cow", "$/year", 60, { step: 5, src: () => "Yearly depreciation and interest; a starting guess" }],
-    ["bullcost", "Price of a replacement bull", "$", 6500, { step: 250 }],
-    ["bkeep", "Yearly cost to keep a bull", "$", v => bullKeep(v), { step: 10, src: () => "1.4 times a cow's pasture, hay, supplement, mineral and vet costs. Purchase payoff uses this number" }],
+    ["fac", "Pens, chute, fence, water, trailer per cow", "$/year", 125, { step: 5, src: () => "A starting guess. Alabama Extension's cow-calf cost studies report $109 to $277 a cow in depreciation." }],
+    ["bullcost", "Price of a replacement bull", "$", 7000, { step: 250 }],
+    ["bkeep", "Yearly cost to keep a bull", "$", v => bullKeep(v), { step: 10, src: () => "1.4 times a cow's pasture, hay, supplement, mineral and vet costs. Used by Purchase payoff; already counted in the lines above." }],
     ["ovh", "Overhead, property taxes and insurance per cow", "$", () => P.overhead_cow, { step: 1, src: () => priceSrc("overhead_cow") }],
     ["cowint", "Charge interest on money tied up in cows", "", 0, { check: true }],
     ["cowval", "Value of a bred cow", "$", 3000, { step: 100, show: v => v.cowint }],
@@ -218,15 +258,16 @@ const ST = [
     ["w0", "Purchase weight", "lb", 450, { simple: true, step: 10 }],
     ["p0", "Purchase price", "$/cwt", v => slide(v.cls, v.w0) * (v.season ? seasonAdj(v.cls, v.w0, v.bmonth) : 1), { simple: true, step: 1, src: v => calfSrc(v.cls, v.w0, v, v.bmonth) }],
     ["days", "Days owned", "days", 140, { simple: true, step: 5 }],
-    ["adg", "Average daily gain (pay weight to pay weight)", "lb/day", 2, { simple: true, step: .1 }],
+    ["adg", "Average daily gain", "lb/day", 2, { simple: true, step: .1 }],
+    ["sshrink", "Sale shrink", "%", 2, { step: .5, src: () => "Pay weight is the weight on pasture less this shrink" }],
     ["death", "Death loss", "%", 2, { step: .5 }],
-    ["_sale", "calc", v => `Sells at ${num(v.w0 + v.adg * v.days)} lb in ${MONTHS_LONG[(v.bmonth + Math.round(v.days / 30.4)) % 12]}.`, { simple: true }],
-    ["p1", "Sale price", "$/cwt", v => { const w1 = v.w0 + v.adg * v.days, m = (v.bmonth + Math.round(v.days / 30.4)) % 12; return slide(v.cls, w1) * (v.season ? seasonAdj(v.cls, w1, m) : 1); },
-      { simple: true, step: 1, src: v => calfSrc(v.cls, v.w0 + v.adg * v.days, v, (v.bmonth + Math.round(v.days / 30.4)) % 12) }],
+    ["_sale", "calc", v => `Sells at ${num(stSaleWt(v))} lb pay weight in ${MONTHS_LONG[(v.bmonth + Math.round(v.days / 30.4)) % 12]}.`, { simple: true }],
+    ["p1", "Sale price", "$/cwt", v => { const w1 = stSaleWt(v), m = (v.bmonth + Math.round(v.days / 30.4)) % 12; return slide(v.cls, w1) * (v.season ? seasonAdj(v.cls, w1, m) : 1); },
+      { simple: true, step: 1, src: v => calfSrc(v.cls, stSaleWt(v), v, (v.bmonth + Math.round(v.days / 30.4)) % 12) }],
   ]},
   { g: "Grazing, hay and feed", open: true, f: [
     ["sys", "Grazing", "", "ryegrass", { simple: true, wide: true, select: () => [["ryegrass", SYSTEMS.ryegrass], ["overseed", SYSTEMS.overseed], ["pasture", SYSTEMS.pasture], ["custom", "Pay for grazing by the day"]] }],
-    ["stock", "Head per acre", "head", 2, { simple: true, step: .1, show: v => v.sys !== "custom" }],
+    ["stock", "Head per acre", "head", 1.5, { simple: true, step: .1, show: v => v.sys !== "custom" }],
     ...forageFields("G", "Grazing", v => v.sys, v => v.sys !== "custom"),
     ...pastureQuestions(v => v.sys === "pasture" && (v.fcG || "build") === "build"),
     ["gday", "Grazing charge", "$/head/day", 0.75, { simple: true, step: .05, show: v => v.sys === "custom" }],
@@ -234,6 +275,8 @@ const ST = [
     ["hayp", HAY_LABEL, "$/ton", () => P.hay_market, { step: 1, src: () => priceSrc("hay_market") }],
     ["feed", "Supplement", "", "soyhulls", { wide: true, select: () => FEEDS.filter(([k]) => P[k] != null).map(([k, n]) => [k, n]) }],
     ["handling", "Delivery and handling", "$/ton", 40, { step: 5, src: v => feedSrc(v.feed) }],
+    ["rlb", "Receiving feed per head per day", "lb", 5, { step: .5, src: () => "The supplement, at its price plus delivery and handling" }],
+    ["rdays", "Receiving feed days", "days", 21, { step: 1 }],
     ["slb", "Supplement per head per day", "lb", 1, { step: .5 }],
     ["minoz", "Mineral per head per day", "oz", 3, { step: .5 }],
     ["minp", "Mineral price", "$/lb", 0.56, { step: .01, src: () => "Starting guess; no public price series" }],
@@ -251,8 +294,8 @@ const ST = [
     ["rate", "Interest rate", "%", () => P.op_rate, { step: .05, src: () => rateSrc() }],
   ]},
   { g: "Ownership costs", f: [
-    ["fac", "Pens, chute, fence, water, trailer", "$/head", 12, { step: 1, src: () => "Depreciation and interest for the time owned; a starting guess" }],
-    ["ovh", "Overhead and insurance", "$/head", 8, { step: 1 }],
+    ["fac", "Pens, chute, fence, water, trailer", "$/head", 25, { step: 1, src: () => "Depreciation and interest for the time owned; a starting guess" }],
+    ["ovh", "Overhead and insurance", "$/head", 10, { step: 1 }],
   ]},
   { g: "When cash comes and goes", cash: true, f: [   // cash flow timing (Full view); starting guesses
     ["tplant", "Pasture planting and fertilizer paid", "", v => (v.bmonth + 11) % 12, { select: () => MONTH_OPTS,
@@ -276,7 +319,7 @@ const RO = [
     ["_wean", "calc", v => `Selling at weaning would net ${usd(weanNet(v), 2)} a head after commission, hauling and the $1 checkoff. The budget charges each calf this much.`],
   ]},
   { g: "Feedlot", open: true, f: [
-    ["freight", "Trucking to the feedlot", "$/head", 45, { step: 1, src: () => "A starting guess for a load from Mississippi to the Plains" }],
+    ["freight", "Trucking to the feedlot", "$/head", 45, { step: 1, src: () => "A starting guess" }],
     ["shrink", "Shrink on the trip", "%", 6, { step: .5 }],
     ["adg", "Average daily gain", "lb/day", v => v.cls === "Steers" ? 3.5 : 3.2, { step: .1 }],
     ["outwt", "Sale weight (pay weight)", "lb", v => v.cls === "Steers" ? 1400 : 1275, { step: 10 }],
@@ -300,6 +343,7 @@ const RO = [
     ["rate", "Interest rate", "%", () => P.op_rate, { step: .05, src: () => rateSrc() }],
   ]},
 ];
+const stSaleWt = v => (v.w0 + v.adg * v.days) * (1 - (v.sshrink || 0) / 100);   // pay weight after the sale shrink
 const cornDM = () => P.corn_omaha / 56 * 2000 / 0.85;          // $/ton of dry matter (85% dry)
 const curYear = () => Number(D.generated.slice(0, 4));
 function roDates(v) {
@@ -343,7 +387,7 @@ const FB = [
     ["comm", "Commission if sold as calves", "% of sales", 3, { step: .25 }],
     ["haul", "Hauling to the sale", "$/head", 6, { step: 1 }],
     ["_calf", "calc", v => `Selling at the start would net ${usd(fbCalfNet(v), 2)} a head after commission, hauling and the $1 checkoff. The budget charges each calf this much.`],
-    ["w1", "Finished live weight", "lb", v => isGrain(v) ? 1150 : 1050, { step: 10 }],
+    ["w1", "Finished live weight", "lb", v => isGrain(v) ? 1250 : 1150, { step: 10 }],
     ["adg", "Average daily gain", "lb/day", v => isGrain(v) ? 2.6 : 1.6, { step: .1 }],
     ["death", "Death loss", "%", 1, { step: .5 }],
     ["_days", "calc", v => { const d = fbDays(v); return `Finishes in ${num(d)} days, in ${MONTHS_LONG[(v.smonth + Math.round(d / 30.4)) % 12]}.`; }],
@@ -376,9 +420,9 @@ const FB = [
     ["shh", "Sold as halves", "% of the beef", 60, { step: 5 }],
     ["shq", "Sold as quarters", "% of the beef", 30, { step: 5 }],
     ["_wh", "calc", v => { const s = shares(v); return s.raw === 100 ? "Wholes, halves and quarters add to 100%." : `These add to ${num(s.raw)}%, so each is scaled to its share of 100%.`; }],
-    ["ph", "Price, halves", "$/lb hanging", v => (isGrain(v) ? 5.00 : 6.00) + procAdd(v), { step: .05, src: v => `A starting guess${v.pay === "you" ? " plus processing" : ""}; no public price series. Packers paid ${usd(P.fed_dressed / 100, 2)}/lb hanging weight for fed steers (5-area, ${pdate(D.prices.fed_dressed)} average)` }],
-    ["pq", "Price, quarters", "$/lb hanging", v => (isGrain(v) ? 5.50 : 6.50) + procAdd(v), { step: .05, src: v => `A starting guess${v.pay === "you" ? " plus processing" : ""}` }],
-    ["pw", "Price, wholes", "$/lb hanging", v => (isGrain(v) ? 4.75 : 5.75) + procAdd(v), { step: .05, src: v => `A starting guess${v.pay === "you" ? " plus processing" : ""}` }],
+    ["ph", "Price, halves", "$/lb hanging", v => fbPrice(v, "half"), { step: .05, src: v => fbPriceSrc(v, "half") }],
+    ["pq", "Price, quarters", "$/lb hanging", v => fbPrice(v, "quarter"), { step: .05, src: v => fbPriceSrc(v, "quarter") }],
+    ["pw", "Price, wholes", "$/lb hanging", v => fbPrice(v, "whole"), { step: .05, src: v => fbPriceSrc(v, "whole") }],
   ]},
   { g: "Health, labor and other operating", f: [
     ["vet", "Vet and medicine", "$/head", 30, { step: 1, src: () => "A starting guess" }],
@@ -398,6 +442,16 @@ const FB = [
   ]},
 ];
 const fbDays = v => v.adg > 0 ? Math.max(v.w1 - v.w0, 0) / v.adg : 0;
+// Grain-fed prices are starting guesses; grass-fed start from USDA-AMS's National Grass Fed
+// Beef Report (direct to consumer, processing not included) and follow it each quarter.
+const FB_GRAIN = { half: 5.00, quarter: 5.50, whole: 4.75 }, FB_GRASS = { half: 6.00, quarter: 6.50, whole: 5.75 };
+const fbPrice = (v, k) => (isGrain(v) ? FB_GRAIN[k] : (P["grass_" + k] ?? FB_GRASS[k])) + procAdd(v);
+function fbPriceSrc(v, k) {
+  const g = D.prices["grass_" + k], proc = v.pay === "you" ? " Processing added." : "";
+  if (!isGrain(v)) return g ? `USDA-AMS National Grass Fed Beef Report, ${g.when}, direct to consumer, processing not included.${proc}` : `A starting guess.${proc}`;
+  const gh = D.prices.grass_half;
+  return `A starting guess.${gh ? ` USDA reports grass-fed halves at ${usd(P.grass_half, 2)} (${gh.when}).` : ""}${proc}`;
+}
 const fbCalfNet = v => v.w0 * v.p0 / 100 * (1 - v.comm / 100) - v.haul - 1;
 const procAdd = v => v.pay === "you" ? v.cw + v.kill / Math.max(v.w1 * v.dress / 100, 1) : 0;
 function mix(v) {
@@ -417,15 +471,16 @@ const FERT_FUEL = ["urea", "dap", "potash", "diesel"], FEED_KEYS = ["soyhulls", 
 CC.push({ g: "Market prices", prices: [...FERT_FUEL, ...FEED_KEYS] });
 ST.push({ g: "Market prices", prices: [...FERT_FUEL, ...FEED_KEYS] });
 RO.push({ g: "Market prices", prices: ["corn_omaha", "fed_live"] });
-FB.push({ g: "Market prices", prices: ["corn", "soyhulls", "cgf", "csm", ...FERT_FUEL, "fed_live", "fed_dressed", "retail_choice"] });
+FB.push({ g: "Market prices", prices: ["corn", "soyhulls", "cgf", "csm", ...FERT_FUEL, "grass_half", "grass_quarter", "grass_whole", "fed_live", "fed_dressed", "retail_choice"] });
 const FNAME = { pasture: "Permanent pasture", hay: "Hay ground", ryegrass: "No-till ryegrass", overseed: "Overseeded ryegrass" };
 
 function cattleWeeks() { return `${D.month_label} average`; }   // the month the page's prices cover
 function calfSrc(cls, wt, v, month) {
   const m = month == null ? v.month : month;
-  let s = `Mississippi auctions, ${cls.toLowerCase()} at ${num(wt)} lb: ${usd(slide(cls, wt), 2)}/cwt, ${cattleWeeks()}`;
+  if (!Number.isFinite(slide(cls, wt))) return `No ${STATE.name} auction price for ${cls.toLowerCase()} in ${D.month_label}`;   // 3G
+  let s = `${STATE.name} auctions, ${cls.toLowerCase()} at ${num(wt)} lb: ${usd(slide(cls, wt), 2)}/cwt, ${cattleWeeks()}`;
   if (v.season && m !== nowMonth()) { const a = seasonAdj(cls, wt, m); s += `; ${a >= 1 ? "+" : "−"}${num(Math.abs(a - 1) * 100, 1)}% for ${MONTHS_LONG[m]} (5-year seasonal pattern)`; }
-  if (wt < 350 || wt > 850) s += ". Outside the weights Mississippi auctions report; price held at the nearest class";
+  if (wt < 350 || wt > 850) s += `. Outside the weights ${STATE.name} auctions report; price held at the nearest class`;
   return s + thinNote(cls, wt);
 }
 // A class with fewer than 50 head that month is estimated from its neighbors (tools/budget_history.py).
@@ -438,7 +493,8 @@ const SHORT = { hay_market: "Alabama hay report", wage: "Mississippi beef cattle
   overhead_cow: "Mississippi Portal average", fed_live: "5-area negotiated cash", fed_dressed: "5-area negotiated cash", corn_omaha: "Omaha",
   urea: "North Carolina and Oklahoma average", dap: "North Carolina and Oklahoma average", potash: "North Carolina and Oklahoma average",
   diesel: "North Carolina and Oklahoma average", soyhulls: "Alabama wholesale", cottonseed: "Alabama wholesale", cgf: "Alabama wholesale",
-  csm: "Memphis wholesale", corn: "Mississippi Delta elevator bid", retail_choice: "Grocery average, all cuts" };
+  csm: "Memphis wholesale", corn: "Mississippi Delta elevator bid", retail_choice: "Grocery average, all cuts",
+  grass_half: "National Grass Fed Beef Report", grass_quarter: "National Grass Fed Beef Report", grass_whole: "National Grass Fed Beef Report" };
 function priceSrc(k) {
   const p = D.prices[k]; if (!p) return "";
   if (P[k] !== p.value) return "Your price (Market prices, in the Full view)";
@@ -486,8 +542,10 @@ function cowCalf(v) {
   const income = rows.reduce((t, r) => t + r.total, 0), bullSale = cbulls * v.bwt * v.bp / 100, sold = steers + heifers + culls + cbulls;
 
   const pa = acreCost(v, "P", v.psys), wa = acreCost(v, "W", v.wsys), ha = acreCost(v, "H", "hay");
-  const pAcres = N * v.acres, wAcres = N * v.wacres;
-  add(O, "Pasture upkeep", pAcres, "acres", pa.d, pAcres * pa.d, acreNote(pa));
+  const pAcres = N * v.acres, wAcres = N * v.wacres, ers = pa.how === "ers";
+  if (ers) add(O, "Pasture, regional average", N, "cows", P.grazed_feed, N * P.grazed_feed,
+               `USDA-ERS grazed feed (the rental value of pasture), ${ersYear()}; replaces pasture upkeep and rent`);
+  else add(O, "Pasture upkeep", pAcres, "acres", pa.d, pAcres * pa.d, acreNote(pa));
   if (wAcres > 0) add(O, "Winter annual pasture", wAcres, "acres", wa.d, wAcres * wa.d, `${FNAME[v.wsys]}; ${acreNote(wa)}`);
   const tons = units * v.hayday * v.haydays / 2000 / (1 - v.waste / 100);
   let hAcres = 0;
@@ -507,8 +565,9 @@ function cowCalf(v) {
   add(O, "Repairs", N, "cows", v.repairs, N * v.repairs);
   const mkt = (income + bullSale) * v.comm / 100 + sold * (v.haul + 1);
   add(O, "Marketing", sold, "head", mkt / sold, mkt, `${num(v.comm, 2)}% commission, hauling and the $1 beef checkoff, cull bulls included`);
-  // overseeded ryegrass grows on the permanent pasture, so it pays no rent of its own
-  const acresAll = pAcres + wAcres + hAcres, rentAcres = pAcres + (v.wsys === "ryegrass" ? wAcres : 0) + hAcres;
+  // overseeded ryegrass grows on the permanent pasture, so it pays no rent of its own; at its
+  // rental value (ERS) the permanent pasture's rent is already in its cost (2A2)
+  const acresAll = pAcres + wAcres + hAcres, rentAcres = (ers ? 0 : pAcres) + (v.wsys === "ryegrass" ? wAcres : 0) + hAcres;
   if (v.chrent) add(O, "Land rent", rentAcres, "acres", v.rent, rentAcres * v.rent);
   const opBefore = rows.filter(r => r.sec === O).reduce((t, r) => t + r.total, 0);
   const interest = opBefore * v.rate / 100 * v.imonths / 12;
@@ -537,12 +596,12 @@ function cowCalf(v) {
 // mineral and vet (the budget counts a bull as 1.4 cows); no labor, overhead or facilities.
 function bullKeep(v) {
   const r = cowCalf(v);
-  return 1.4 * r.rows.filter(x => /^(Pasture upkeep|Winter annual|Hay|Supplement|Salt and mineral|Vet)/.test(x.item)).reduce((t, x) => t + x.total, 0) / r.N;
+  return 1.4 * r.rows.filter(x => /^(Pasture upkeep|Pasture, regional average|Winter annual|Hay|Supplement|Salt and mineral|Vet)/.test(x.item)).reduce((t, x) => t + x.total, 0) / r.N;
 }
 
 // ---------- stocker budget ----------
 function stocker(v) {
-  const H = v.head, w1 = v.w0 + v.adg * v.days, sold = H * (1 - v.death / 100);
+  const H = v.head, w1 = stSaleWt(v), sold = H * (1 - v.death / 100);
   const rows = [], add = (sec, item, qty, unit, price, total, note) => rows.push({ sec, item, qty, unit, price, total, note });
   const R = "Income", O = "Operating costs", F = "Ownership costs";
   const income = sold * w1 * v.p1 / 100;
@@ -554,7 +613,8 @@ function stocker(v) {
   if (v.sys === "custom") add(O, "Grazing", H * v.days, "head-days", v.gday, H * v.days * v.gday);
   else { fa = acreCost(v, "G", v.sys); acres = H / v.stock; add(O, "Grazing", acres, "acres", fa.d, acres * fa.d, `${FNAME[v.sys]}; ${acreNote(fa)}`); }
   add(O, "Hay", H * v.hayt, "tons", v.hayp, H * v.hayt * v.hayp);
-  const fp = P[v.feed] + v.handling, ft = H * v.slb * v.days / 2000;
+  const fp = P[v.feed] + v.handling, ft = H * v.slb * v.days / 2000, rt = H * v.rlb * v.rdays / 2000;
+  if (rt > 0) add(O, "Receiving feed", rt, "tons", fp, rt * fp, `${num(v.rlb, 1)} lb a head a day for ${num(v.rdays)} days`);
   add(O, "Supplement", ft, "tons", fp, ft * fp, FEEDS.find(f => f[0] === v.feed)[1]);
   const ml = H * v.minoz / 16 * v.days;
   add(O, "Salt and mineral", ml, "lb", v.minp, ml * v.minp);
@@ -599,7 +659,7 @@ function retained(v) {
   const income = sold * v.outwt * v.sp / 100;
   add(R, `Fed ${v.cls.toLowerCase()} sold`, sold, "head", v.outwt * v.sp / 100, income, `${num(v.outwt)} lb at ${usd(v.sp, 2)}/cwt after ${num(v.death, 2)}% death loss`);
   const wn = weanNet(v), calves = H * wn;
-  add(O, "Calves at their weaning value", H, "head", wn, calves, `What they would have netted at a Mississippi auction in ${MONTHS_LONG[v.wmonth]}: ${num(v.ww)} lb at ${usd(v.wp, 2)}/cwt`);
+  add(O, "Calves at their weaning value", H, "head", wn, calves, `What they would have netted at a ${STATE.name} auction in ${MONTHS_LONG[v.wmonth]}: ${num(v.ww)} lb at ${usd(v.wp, 2)}/cwt`);
   add(O, "Trucking to the feedlot", H, "head", v.freight, H * v.freight, `${num(v.shrink, 1)}% shrink; on feed at ${num(r.inW)} lb`);
   const first = rows.length;
   if (isBuild(v)) {
@@ -710,20 +770,24 @@ function histAverage(recs, cattleRec) {         // costs averaged over recs; cat
 }
 function withHist(rec, fn) {                     // run fn with that month's prices in D and P
   const saveD = D, saveP = { ...P };
-  const today = D.cattle.cows, base = today["Boner 80-85%"] || Object.values(today)[0];
+  const today = D.cattle.cows || {}, base = today["Boner 80-85%"] || Object.values(today)[0];
   const cows = {};
   Object.entries(today).forEach(([g, c]) => { cows[g] = { ...c, price: rec.cow * c.price / base.price }; });
   const ppi = { ...D.ppi };
   Object.entries(rec.ppi).forEach(([k, r]) => { ppi[k] = { ...ppi[k], ratio: r }; });
   D = { ...D, ppi, counties: [], cattle: { ...D.cattle, slide: rec.slide, slide_dates: [`${rec.m}-01`, `${rec.m}-28`], cows, bulls: { price: rec.bull } } };
   Object.assign(P, rec.P);
+  if (REGION_YEARS) {          // another ERS region: its vet, overhead and pasture rental value for that year (or the latest before)
+    const y = Number(rec.m.slice(0, 4)), have = Object.keys(REGION_YEARS).map(Number).filter(x => x <= y);
+    const r = have.length ? REGION_YEARS[String(Math.max(...have))] : null;
+    if (r) { if (r.vet != null) P.vet_cow = r.vet; if (r.ovh != null) P.overhead_cow = r.ovh; if (r.grazed_feed != null) P.grazed_feed = r.grazed_feed; }
+  }
   try { return fn(); }
   finally { D = saveD; Object.keys(P).forEach(k => delete P[k]); Object.assign(P, saveP); }
 }
 function histValues(st, extra = {}) {           // the form's values under the current (historical) prices
   const typed = { ...st.typed, season: 0, ...extra };
   (HIST_MARKET[st.key] || []).forEach(k => { if (!(k in extra)) delete typed[k]; });
-  if ("county" in typed) typed.county = "";
   const s = { ...st, typed, v: {} }; fill(s); return s.v;
 }
 function historyRows(st) {
@@ -741,7 +805,7 @@ function historyRows(st) {
       const [sy, sm] = shiftMonth(y, v0.bmonth, n), sale = by[ym(sy, sm)];
       const win = histWindow(by, y, v0.bmonth, 0, Math.max(n - 1, 0));
       if (!buy || !sale || !buy.slide[v0.cls] || !sale.slide[v0.cls]) continue;
-      const w1 = v0.w0 + v0.adg * v0.days, p1 = withHist(sale, () => slide(v0.cls, w1));
+      const w1 = stSaleWt(v0), p1 = withHist(sale, () => slide(v0.cls, w1));
       row = withHist(histAverage(win, buy), () => { const v = histValues(st, { p1 }); const r = stocker(v);
         return { net: r.net / r.N, netOp: (r.income - r.op) / r.N, be: r.beSale, buy: v.p0, price: v.p1, cog: r.cog }; });
     } else if (st.key === "ro") {        // weaned, fed out, sold at that month's 5-area fed price
@@ -797,7 +861,7 @@ const PP = [
     ["cover", "Costs the cattle must cover", "", "all", { show: () => false, select: [["all", "All costs, including fixed"], ["op", "Operating costs only"]] }],   // set by the switch above the results
     ["kind", "What you're buying", "", "cow", { wide: true, show: () => false, select: [["cow", "Bred cow"], ["heifer", "Bred heifer"], ["bull", "Bull"]] }],
     ["head", "Head bought", "head", v => isBull(v) ? 1 : 10, { step: 1 }],
-    ["price", "Purchase price", "$/head", v => ({ cow: 2750, heifer: 3500, bull: 6500 })[v.kind], { step: 25, src: () => "A placeholder, not a market price" }],
+    ["price", "Purchase price", "$/head", v => ({ cow: 2750, heifer: 3500, bull: 7000 })[v.kind], { step: 25, src: () => "A placeholder, not a market price" }],
     ["extra", "Trucking, testing and other purchase costs", "$/head", 25, { step: 5, src: () => "A starting guess" }],
     ["years", "Years in your herd", "years", v => ({ cow: 5, heifer: 8, bull: 4 })[v.kind], { step: 1,
       src: v => ({ cow: "A bred cow bought at 4 to 6 years old, kept to about 10", heifer: "Calves at 2, kept to about 10", bull: "Years of service" })[v.kind] }],
@@ -897,7 +961,7 @@ function cashFlow(key, v) {
       if (/^Supplement/.test(it)) return run(v.tsupp, Math.max(1, Math.round(v.cdays / 30.4)));
       if (/^Vet/.test(it)) return [[col(v.tvet), .5], [col(v.month), .5]];
       if (/^Breeding/.test(it)) return at(v.tvet + 2);
-      if (/^Land rent/.test(it)) return at(v.trent);
+      if (/^Land rent|^Pasture, regional average/.test(it)) return at(v.trent);
       if (/^Overhead/.test(it)) return at(v.tovh);
       return even();                                      // mineral, labor, fuel, repairs
     };
@@ -912,7 +976,7 @@ function cashFlow(key, v) {
     const owned = () => Array.from({ length: n }, (_, i) => [col(i), 1 / n]);
     place = row => {
       const it = row.item;
-      if (/^Calves bought|^Freight in|^Processing/.test(it)) return at(0);
+      if (/^Calves bought|^Freight in|^Processing|^Receiving feed/.test(it)) return at(0);
       if (/^Grazing/.test(it)) return annual ? at(plant) : owned();
       if (/sold$|^Marketing|^Interest/.test(it)) return at(n);
       return owned();                                     // hay, supplement, mineral, labor, fuel, rent, overhead

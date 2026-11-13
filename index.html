@@ -67,6 +67,10 @@ a { color: var(--link); }
 h1 { font: 700 clamp(28px, 5vw, 40px)/1.08 var(--display); margin: 0; text-wrap: balance; }
 .asof { margin: 6px 0 0; font-size: 14px; opacity: .9; max-width: 80ch; }
 .asof a { color: inherit; }
+.place { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; margin: 12px 0 0; font-size: 14px; }
+.place label { font-weight: 600; }
+.place select { font: inherit; font-size: 15px; padding: 5px 8px; border-radius: 7px; border: 1px solid var(--field-rule); background: var(--surface); color: var(--ink); max-width: 100%; }
+.mstag { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 4px; background: var(--warn-bg); color: var(--warn-ink); font-size: 11.5px; font-weight: 600; letter-spacing: .02em; }
 .stale { margin: 10px 0 0; padding: 8px 12px; border-radius: 8px; background: var(--warn-bg); color: var(--warn-ink); font-size: 14px; font-weight: 600; max-width: 80ch; }
 
 .tabs { position: sticky; top: 0; z-index: 5; background: var(--bg); border-bottom: 1px solid var(--rule); }
@@ -134,6 +138,8 @@ details.grp > summary small { font-weight: 500; color: var(--muted); font-size: 
 .tbl tr.net td { font-weight: 700; font-size: 16px; border-bottom: 0; }
 .tbl tr.pick td { background: var(--accent-soft); }
 .tbl td small { display: block; color: var(--muted); font-size: 12.5px; font-weight: 400; }
+.tbl td.num, .grid-sens td { white-space: nowrap; }      /* a negative number never wraps after its minus sign */
+.tbl td.num small { white-space: normal; }
 .tbl .neg { color: var(--neg); }
 .scroll { overflow-x: auto; }
 .tbl .show-sm { display: none; }
@@ -261,6 +267,9 @@ footer .legal { display: grid; gap: 8px; margin-top: 18px; }
   <p class="kicker">Mississippi State University Extension &middot; Beta</p>
   <h1>Beef cattle budgets</h1>
   <p class="asof" id="asof">Loading prices&hellip;</p>
+  <div class="place" id="place" hidden><label for="state-sel">State</label><select id="state-sel"></select>
+    <label for="region-sel">USDA-ERS region</label><select id="region-sel"></select></div>
+  <p class="stale" id="ms-note" hidden>Feed, hay, fertilizer and forage numbers are Mississippi's. Enter your own where they differ.</p>
       <p class="asof tools-line"><a href="#more-tools">More cattle tools</a><button type="button" class="share-btn" id="share-view">Share this page</button><span class="sr-only" role="status" id="share-msg"></span></p>
 </div></header>
 <nav class="tabs" aria-label="Sections"><div class="wrap" role="tablist">
@@ -291,11 +300,13 @@ footer .legal { display: grid; gap: 8px; margin-top: 18px; }
         <button type="button" role="radio" data-mode="simple">Simple</button>
         <button type="button" role="radio" data-mode="full">Full</button>
       </div>
-      <p class="note">Simple asks what most producers know and fills in the rest with typical numbers and <span data-month></span> average prices. Full shows every cost and price.</p>
+      <p class="note">Simple asks what most producers know and fills in the rest with starting numbers and <span data-month></span> average prices. Full shows every cost and price.</p>
       <p class="note">Operating costs: what is spent during the year. All costs: also depreciation, facilities, overhead, taxes and insurance.</p>
       <button type="button" class="btn top-reset" data-reset="cc">Start over</button>
     </div>
     <div class="tiles" id="cc-tiles"></div>
+    <p class="note" id="cc-miss" hidden></p>
+    <p class="note" id="cc-avg"></p>
     <div class="cols">
       <div class="inputs" id="cc-in"></div>
       <div class="panel">
@@ -334,6 +345,7 @@ footer .legal { display: grid; gap: 8px; margin-top: 18px; }
       <button type="button" class="btn top-reset" data-reset="st">Start over</button>
     </div>
     <div class="tiles" id="st-tiles"></div>
+    <p class="note" id="st-miss" hidden></p>
     <div class="cols">
       <div class="inputs" id="st-in"></div>
       <div class="panel">
@@ -361,6 +373,7 @@ footer .legal { display: grid; gap: 8px; margin-top: 18px; }
       <button type="button" class="btn top-reset" data-reset="ro">Start over</button>
     </div>
     <div class="tiles" id="ro-tiles"></div>
+    <p class="note" id="ro-miss" hidden></p>
     <div class="cols">
       <div class="inputs" id="ro-in"></div>
       <div class="panel">
@@ -394,6 +407,7 @@ footer .legal { display: grid; gap: 8px; margin-top: 18px; }
       <button type="button" class="btn top-reset" data-reset="fb">Start over</button>
     </div>
     <div class="tiles" id="fb-tiles"></div>
+    <p class="note" id="fb-miss" hidden></p>
     <p class="note" id="fb-own"></p>
     <div class="cols">
       <div class="inputs" id="fb-in"></div>
@@ -430,6 +444,7 @@ footer .legal { display: grid; gap: 8px; margin-top: 18px; }
       <button type="button" class="btn top-reset" data-reset="pp">Start over</button>
     </div>
     <div class="tiles" id="pp-tiles"></div>
+    <p class="note" id="pp-miss" hidden></p>
     <div class="cols">
       <div class="inputs" id="pp-in"></div>
       <div class="panel">
@@ -460,8 +475,8 @@ footer .legal { display: grid; gap: 8px; margin-top: 18px; }
       <h3>Prices and sources</h3>
       <p class="note" style="margin-bottom:10px">Every price the budgets start from. Change them in each budget's Full view, under Market prices.</p>
       <div class="scroll" id="pr-tbl"></div>
-      <p class="note" style="margin-top:10px">This week's Mississippi auction prices by class and weight, barn by barn:
-        <a href="../cattleprices/?state=ms#week">Cattle Auction Prices</a>.</p>
+      <p class="note" style="margin-top:10px">This week's <span data-state-name>Mississippi</span> auction prices by class and weight, barn by barn:
+        <a href="../cattleprices/?state=ms#week" id="ab-auction-link">Cattle Auction Prices</a>.</p>
     </div>
   </section>
 </main>
@@ -500,7 +515,7 @@ footer .legal { display: grid; gap: 8px; margin-top: 18px; }
   </div>
 </div></footer>
 
-<script src="budget.js?v=45ebaac780"></script>
+<script src="budget.js?v=85a3421a6a"></script>
 <script>
 "use strict";
 // the page: forms, tables, charts and tabs; the math is in budget.js
@@ -519,7 +534,7 @@ function render(st) {
   if (st.mode) {
     const det = document.createElement("details");
     det.className = "grp assume"; det.dataset.assume = "1";
-    det.innerHTML = `<summary>What Simple fills in for you <small>typical numbers</small></summary><div class="assume-body"></div>
+    det.innerHTML = `<summary>What Simple fills in for you <small>starting numbers</small></summary><div class="assume-body"></div>
       <div class="btns" style="padding:0 16px 16px"><button type="button" class="btn">Change these in the Full budget</button></div>`;
     $("button", det).addEventListener("click", () => { st.mode = "full"; update(st); });
     box.appendChild(det);
@@ -549,7 +564,7 @@ function priceGroup(st, g) {
 function field(st, f) {
   const [id, label, unit, def, o = {}] = f;
   const el = document.createElement("div");
-  if (label === "calc") { el.className = "calc"; el.dataset.calc = id; el._calc = unit; el._simple = !!(def && def.simple); return el; }
+  if (label === "calc") { el.className = "calc"; el.dataset.calc = id; el._calc = unit; el._simple = !!(def && def.simple); el._html = !!(def && def.html); return el; }
   el.className = "f" + (o.check ? " check" : "") + (o.wide || o.check ? " wide" : "");
   el.dataset.id = id;
   const iid = `${st.key}-${id}`;
@@ -583,6 +598,7 @@ function sync(st, skip) {     // push values into the form
   st.fields.forEach(([id, label, unit, def, o = {}]) => {
     const el = $(`[data-id="${id}"]`, box); if (!el) return;
     el.hidden = (o.show ? !o.show(st.v) : false) || (simple && !o.simple) || (!!o.simpleOnly && !simple);
+    if (MS_FIELDS.has(id)) msTag(el);
     if (o.check) { $("input", el).checked = !!st.v[id]; return; }
     if (o.select) { $("select", el).value = String(st.v[id]); const s = $(".src", el); if (s) { if (o.html) s.innerHTML = o.src(st.v); else s.textContent = o.src(st.v); } return; }
     const inp = $("input", el);
@@ -595,11 +611,12 @@ function sync(st, skip) {     // push values into the form
       $("button", src).addEventListener("click", () => { delete st.typed[id]; update(st); });
     } else if (o.html) src.innerHTML = txt; else src.textContent = txt;
   });
-  box.querySelectorAll("[data-calc]").forEach(el => { el.hidden = simple && !el._simple; el.textContent = el._calc(st.v); });
+  box.querySelectorAll("[data-calc]").forEach(el => { el.hidden = simple && !el._simple; if (el._html) el.innerHTML = el._calc(st.v); else el.textContent = el._calc(st.v); });
   box.querySelectorAll("details[data-g]").forEach(d => { d.hidden = ![...$(".fields", d).children].some(c => !c.hidden); });
   box.querySelectorAll("details[data-prices]").forEach(d => { d.hidden = simple; });
   box.querySelectorAll("[data-pk]").forEach(el => {
     const k = el.dataset.pk, p = D.prices[k], inp = $("input", el), src = $(".src", el);
+    if (MS_PRICES.has(k)) msTag(el);
     if (document.activeElement !== inp) inp.value = roundFor(P[k], .01);
     if (P[k] !== p.value) {
       src.innerHTML = `<span class="edited">your price</span> <button type="button">use ${roundFor(p.value, .01)} again</button>`;
@@ -660,8 +677,17 @@ function sensGrid(rowsDef, colsDef, fn, rowLabel, colLabel, neutral) {
   return h + "</tbody></table>";
 }
 
+// 3G: a price the state doesn't have shows a dash; one line under the tiles says which
+const NEED = { cc: [["sp", "steer calves"], ["hp", "heifer calves"], ["cp", "cull cows"], ["bp", "cull bulls"]],
+  st: [["p0", "the calves bought"], ["p1", "the feeders sold"]], ro: [["wp", "calves at weaning"]], fb: [["p0", "the calves"]], pp: [["cp", "calves"], ["cullp", "cull animals"]] };
+function missingNote(st) {
+  const el = $(`#${st.key}-miss`); if (!el) return;
+  const miss = (NEED[st.key] || []).filter(([id]) => !Number.isFinite(st.v[id])).map(([, name]) => name);
+  el.hidden = !miss.length;
+  el.textContent = miss.length ? `No ${STATE.name} auction price for ${D.month_label}: ${miss.join(", ")}. Enter one${st.mode ? " in the Full view" : ""} to see this budget.` : "";
+}
 function update(st, skip) {
-  fill(st); sync(st, skip);
+  fill(st); sync(st, skip); missingNote(st);
   ({ cc: drawCC, st: drawST, ro: drawRO, fb: drawFB, pp: drawPP })[st.key](st.v);
   document.querySelectorAll(`[data-cover-for="${st.key}"] button`).forEach(b => b.setAttribute("aria-checked", String(b.dataset.cover === st.v.cover)));
   drawHistory(st);
@@ -696,9 +722,12 @@ function views(key, v) {
     // break-even purchase price at this month's calf price and at the 10-year average for that month
     const b = ccBase(), h = calfPriceHist(v.cwt, b.v.month), hp = h ? payoff({ ...v, cp: h.avg }).maxPay : NaN;
     const now = Math.abs(v.cp - b.price) < 1e-9 ? `at the ${D.month_label} calf price` : `at your calf price (${usd(v.cp, 2)}/cwt)`;
+    // a break-even purchase price of zero or below means no price pays back: "none" (1D1)
+    const bep = x => Number.isFinite(x) && x <= 0 ? ["none", null] : [usd(x), x];
     return { r, tiles: [
-      [usd(r.maxPay), `Break-even purchase price per ${per}${coverOp(v) ? " (operating costs)" : ""}`, "", r.maxPay, "usd0",
-        [[usd(r.maxPay), now, r.maxPay], [usd(hp), h ? `at the ${h.y0}–${h.y1} average calf price` : "at the 10-year average calf price", hp]]],
+      [bep(r.maxPay)[0], `Break-even purchase price per ${per}${coverOp(v) ? " (operating costs)" : ""}`, "", bep(r.maxPay)[1], "usd0",
+        [[bep(r.maxPay)[0], now, bep(r.maxPay)[1]],
+         [bep(hp)[0], h ? `at the ${h.y0}–${h.y1} average calf price and ${curYear()} costs` : `at the 10-year average calf price and ${curYear()} costs`, bep(hp)[1]]]],
       [usd(r.npv), `net present value per ${per} at your price`, sign(r.npv), r.npv, "usd0"],
       [r.payback != null ? `${num(r.payback, 1)} years` : `Not in ${r.L} years`, "to pay back the purchase", r.payback != null ? "" : "neg", r.payback != null ? r.payback : null, "num1"],
       [usd(r.cpBE, 2), "calf price that breaks even ($/cwt)", "", r.cpBE, "usd2"]],
@@ -758,12 +787,14 @@ function views(key, v) {
 const showSens = (id, s) => { $(id).innerHTML = sensGrid(s.rows, s.cols, s.fn, s.rowLabel, s.colLabel, s.neutral); };
 function drawCC(v) {
   const { r, tiles: t, sens } = views("cc", v);
+  $("#cc-avg").textContent = (v.fcP || "ers") === "ers" ? "Pasture cost is a regional average." : "";
   tiles("#cc-tiles", t);
   $("#cc-tbl").innerHTML = table(r, v.cover);
   showSens("#cc-sens", sens);
   drawCash("cc", v);
   const e = D.ers;
-  $("#cc-ers").innerHTML = `<p class="note" style="color:var(--ink-2)">USDA-ERS estimates for cow-calf farms in its Mississippi Portal region (the Delta and river counties of Mississippi, Louisiana, Arkansas and Tennessee), ${e.year}, per bred cow: operating costs ${usd(e.total_operating_costs)}, value of production ${usd(e.total_gross_value_of_production)}. Its total cost of ${usd(e.total_costs_listed)} also charges for the owner's unpaid labor and land, which this budget leaves out unless you add them. Your budget: operating costs ${usd(r.op / r.N)} and income ${usd(r.income / r.N)} per cow.</p>`;
+  const rn = D.ers_regions ? D.ers_regions[REGION].name : "Mississippi Portal";
+  $("#cc-ers").innerHTML = `<p class="note" style="color:var(--ink-2)">USDA-ERS estimates for cow-calf farms in its ${rn} region${STATE.code === "ms" && REGION === "mississippi_portal" ? " (in Mississippi, 58 of 82 counties, all but the southeast)" : ""}, ${e.year}, per bred cow: operating costs ${usd(e.total_operating_costs)}, value of production ${usd(e.total_gross_value_of_production)}. Its total cost of ${usd(e.total_costs_listed)} also charges for the owner's unpaid labor and land, which this budget leaves out unless you add them. Your budget: operating costs ${usd(r.op / r.N)} and income ${usd(r.income / r.N)} per cow.</p>`;
 }
 function drawST(v) {
   const { r, tiles: t, sens } = views("st", v);
@@ -913,7 +944,7 @@ const PRICE_KEYS = {
   cc: ["hay_market", "soyhulls", "cottonseed", "cgf", "corn", "csm", "urea", "dap", "potash", "diesel", "wage", "rent", "op_rate", "vet_cow", "overhead_cow"],
   st: ["hay_market", "soyhulls", "cottonseed", "cgf", "corn", "csm", "urea", "dap", "potash", "diesel", "wage", "rent", "op_rate"],
   ro: ["corn_omaha", "fed_live", "op_rate"],
-  fb: ["corn", "soyhulls", "cgf", "csm", "hay_market", "urea", "dap", "potash", "diesel", "wage", "rent", "op_rate", "fed_live", "fed_dressed", "retail_choice"],
+  fb: ["corn", "soyhulls", "cgf", "csm", "hay_market", "urea", "dap", "potash", "diesel", "wage", "rent", "op_rate", "grass_half", "grass_quarter", "grass_whole", "fed_live", "fed_dressed", "retail_choice"],
   pp: ["op_rate"],
 };
 function inputRow(st, f) {
@@ -923,7 +954,7 @@ function inputRow(st, f) {
   else if (o.select) { const opts = typeof o.select === "function" ? o.select() : o.select; const hit = opts.find(([k]) => String(k) === String(x)); value = hit ? hit[1] : String(x); u = ""; }
   else value = x;
   const typed = typeof def === "function" && id in st.typed;
-  const src = typed ? "Your number" : o.src ? o.src(st.v) : "";
+  const src = typed ? "Your number" : o.src ? String(o.src(st.v)).replace(/<[^>]*>/g, "") : "";      // no link code in a file
   return { label, value, unit: u, src };
 }
 function reportModel(st) {
@@ -940,14 +971,24 @@ function reportModel(st) {
     unitLabel: r.unit, per: r.per, tiles: flatTiles(vw.tiles), inputs,
     sens: { title: s.title || SENS_TITLE[key], rowLabel: s.rowLabel, colLabel: s.colLabel, cols: s.cols.map(c => c.label),
       rows: s.rows.map(row => ({ label: row.label, vals: s.cols.map(c => s.fn(row.val, c.val)), base: s.cols.map(c => row.base && c.base) })) },
-    hist, histCols: histColsFor(key, v),
+    hist, histCols: histColsFor(key, v), forage: forageUsed(key, v),
     cover: ["cc", "st", "fb", "pp"].includes(key) ? (coverOp(v) ? "Operating costs only" : "All costs, including fixed costs") : null,
     prices: PRICE_KEYS[key].filter(k => D.prices[k]).map(k => ({ ...D.prices[k], value: P[k], yours: P[k] !== D.prices[k].value })),
-    asof: `Prices through ${fdate(D.generated)}; Mississippi auction prices through ${fdate(D.cattle.through)}.`,
-    sources: "Mississippi auction prices: USDA-AMS and the Mississippi Department of Agriculture and Commerce. Pasture and hay: MSU Extension 2027 forage budgets. " +
+    asof: `${D.month_label} average prices; page built ${fdate(D.generated)}.`,
+    sources: `${STATE.name} auction prices: USDA-AMS and the ${STATE.agency}. Pasture and hay: MSU Extension 2027 forage budgets. ` +
       "Other prices: USDA-AMS, USDA-NASS, USDA-ERS, BLS, the Federal Reserve Bank of Dallas and CME Group, as listed with each price.",
     disclaimer: "Prepared with the Mississippi State University Extension beef cattle budget tool (beta), using the producer's own numbers and public market prices. " +
       "It is an estimate for planning, not a forecast of what any farm will earn. Starting numbers without a public source are typical values; replace them with your own." };
+}
+// The forage worksheets a budget builds its cost per acre from, for the exports (1C2)
+const FORAGE_ROLES = {
+  cc: v => [["P", v.psys], ...(v.wacres > 0 ? [["W", v.wsys]] : []), ...(v.haysrc === "raise" ? [["H", "hay"]] : [])],
+  st: v => v.sys === "custom" ? [] : [["G", v.sys]],
+  fb: v => [...(v.pacres > 0 ? [["P", "pasture"]] : []), ...(v.wacres > 0 ? [["W", v.wsys]] : [])],
+};
+function forageUsed(key, v) {
+  const used = (FORAGE_ROLES[key] ? FORAGE_ROLES[key](v) : []).filter(([r]) => (v["fc" + r] || "build") === "build").map(([, sys]) => sys);
+  return [...new Set(used)].map(sys => ({ sys, name: FNAME[sys], printed: wsPrinted(sys), ...forageAcre(sys) }));
 }
 // budget rows grouped by section, with the subtotals the page shows
 function budgetBlocks(m) {
@@ -1080,6 +1121,21 @@ async function buildXlsx(m) {
     m.histCols.forEach((c, i) => { wh.getColumn(i + 1).width = 22; });
   }
 
+  if (m.forage.length) {         // the Forage costs worksheets this budget uses, each line a quantity-times-price formula
+    const wf = wb.addWorksheet("Forage costs", { views: [{ showGridLines: false }] });
+    wf.columns = [{ width: 36 }, { width: 8 }, { width: 12 }, { width: 8 }, { width: 13 }, { width: 12 }, { width: 13 }, { width: 26 }];
+    m.forage.forEach(a => {
+      wf.addRow([`${a.name} (MSU table ${a.table}), per acre`]).font = { bold: true, size: 12, color: { argb: MAROON } };
+      wf.addRow([a.printed ? "MSU printed rates, establishment not charged" : "Changed from MSU's printed budget"]).font = { italic: true, size: 9 };
+      wf.addRow(["Item", "Used", "Quantity", "Unit", "MSU printed", "Price", "Per acre", "Price basis"]).font = { bold: true };
+      const first = wf.rowCount + 1;
+      a.rows.forEach(r => { const x = wf.addRow([r.item + (r.part === "est" ? " (establishment)" : r.part === "fixed" ? " (machinery)" : ""), r.on ? "Yes" : "No", r.qty, r.unit, r.printed, r.price, null, r.how]);
+        x.getCell(7).value = { formula: `C${x.number}*F${x.number}`, result: r.cost }; x.getCell(6).numFmt = USD2; x.getCell(7).numFmt = USD2; x.getCell(3).numFmt = QTY; x.getCell(5).numFmt = QTY; });
+      const t = wf.addRow(["Total per acre", null, null, null, null, null, { formula: `SUM(G${first}:G${wf.rowCount})`, result: a.d + a.f }]);
+      t.font = { bold: true }; t.getCell(7).numFmt = USD2;
+      wf.addRow([]);
+    });
+  }
   const wp = wb.addWorksheet("Prices", { views: [{ showGridLines: false, state: "frozen", ySplit: 1 }] });
   wp.columns = [{ header: "Price", width: 40 }, { header: "Value", width: 14 }, { header: "Unit", width: 10 }, { header: "Source", width: 32 }, { header: "Date", width: 14 }, { header: "Note", width: 90 }];
   wp.getRow(1).font = { bold: true };
@@ -1195,6 +1251,16 @@ async function buildDocx(m) {
       children: m.histCols.map((c, i) => cell(show(hr[c[1]], c[2]), hw[i], { right: i > 0, size: 18 })) })))));
   }
 
+  m.forage.forEach(a => {      // the Forage costs worksheets this budget uses (1C2)
+    kids.push(h(`${a.name} cost per acre`));
+    kids.push(para([run(`MSU table ${a.table}. ${a.printed ? "MSU printed rates, establishment not charged." : "Changed from MSU's printed budget."}`, { size: 18, color: "666666" })]));
+    const fw = [4080, 1800, 1920, 2280];
+    const on = a.rows.filter(r => r.on && r.qty);
+    kids.push(table(fw, [headRow(["Item", "Quantity", "Price", "Per acre"], fw, i => i > 0)].concat(on.map(r => new d.TableRow({ cantSplit: true,
+      children: [cell(r.item, fw[0], { size: 18 }), cell(`${num(r.qty, 2)} ${r.unit}`, fw[1], { right: true, size: 18 }), cell(money(r.price, 2), fw[2], { right: true, size: 18 }),
+        cell(money(r.cost, 2), fw[3], { right: true, size: 18 })] }))).concat([new d.TableRow({ children: [cell("Total per acre", fw[0], { bold: true, size: 18 }), cell("", fw[1]), cell("", fw[2]),
+        cell(money(a.d + a.f, 2), fw[3], { right: true, bold: true, size: 18 })] })])));
+  });
   kids.push(h("Prices and sources"));
   const pw = [3600, 1800, 4680];
   kids.push(table(pw, [headRow(["Price", "Value", "Source and date"], pw, i => i === 1)].concat(m.prices.map(p => new d.TableRow({ cantSplit: true, children: [
@@ -1313,7 +1379,8 @@ function bullTable(r, v) {
 // each past year's prices (historyRows in budget.js), next to last month's.
 function niceStep(x) { const p = Math.pow(10, Math.floor(Math.log10(x))); return [1, 2, 2.5, 5, 10].map(m => m * p).find(s => s >= x); }
 function histChart(pts, o) {
-  const W = 640, H = 230, L = 58, R = 12, T = 10, B = 26;
+  const W = 640, H = 230, R = 12, T = 10, B = 26;
+  let L = 58;
   pts = pts.filter(p => Number.isFinite(p.v));
   if (o.line != null && !Number.isFinite(o.line)) o = { ...o, line: null };
   if (!pts.length) return `<p class="note">Not enough past prices for these choices.</p>`;
@@ -1321,6 +1388,7 @@ function histChart(pts, o) {
   let lo = Math.min(0, ...vals), hi = Math.max(0, ...vals);
   const step = niceStep((hi - lo) / 4 || 1);
   lo = Math.floor(lo / step) * step; hi = Math.ceil(hi / step) * step;
+  for (let v = lo; v <= hi + step / 2; v += step) L = Math.max(L, 14 + 7.4 * String(o.fmt(v, true)).length);   // room for the widest label
   const y = v => T + (hi - v) / (hi - lo) * (H - T - B), bw = (W - L - R) / pts.length;
   let s = `<svg class="hchart" viewBox="0 0 ${W} ${H}" role="img" tabindex="0" aria-label="${o.label}. Use the arrow keys to read each bar.">`;
   for (let v = lo; v <= hi + step / 2; v += step) {
@@ -1386,7 +1454,7 @@ function drawHistory(st) {
     pts = rows.map(x => ({ ...yr(x), v: x.netOp })).concat([{ label: "Now", title: nowT, v: (r.income - r.op) / r.N, now: true }]);
     o = { signed: true, fmt: money, label: "Return over operating costs per head by year bought" };
     title = `Your budget in past years: return over operating costs per head, bought in ${MONTHS_LONG[v.bmonth]}`;
-    note = `Bought and sold at each year's Mississippi auction prices for those months. ${heldNote("st", v)}`;
+    note = `Bought and sold at each year's ${STATE.name} auction prices for those months. ${heldNote("st", v)}`;
     cols = [["Year", x => x.year], ["Buy $/cwt", x => usd(x.buy, 2)], ["Sell $/cwt", x => usd(x.price, 2)], ["Over operating costs per head", x => usd(x.netOp)]];
   } else if (st.key === "ro") {
     const r = retained(v);
@@ -1405,12 +1473,13 @@ function drawHistory(st) {
     cols = [["Year", x => x.year], ["Calf $/cwt", x => usd(x.calf, 2)], [op ? "Operating cost per lb hanging" : "Cost per lb hanging", x => usd(x[key], 2)]];
   }
   $(`#${st.key}-hist-h`).textContent = title;
-  box.innerHTML = histChart(pts, o) + `<p class="note" style="margin-top:6px">${note} Some prices before 2011 are estimated (How it works).</p>
+  const first = STATE.code !== "ms" && STATE.meta && STATE.meta.first_feeder_month ? ` ${STATE.name}'s auction record here starts in ${STATE.meta.first_feeder_month.slice(0, 4)}.` : "";   // 3G
+  box.innerHTML = histChart(pts, o) + `<p class="note" style="margin-top:6px">${note}${first} Some prices before 2011 are estimated (How it works).</p>
     <details class="hist-tbl"><summary>See the numbers</summary><div class="scroll"><table class="tbl"><thead><tr>${cols.map(c => `<th>${c[0]}</th>`).join("")}</tr></thead><tbody>${rows.map(x => `<tr>${cols.map(c => `<td class="num">${c[1](x)}</td>`).join("")}</tr>`).join("")}</tbody></table></div></details>`;
 }
 
 // ---------- prices tab ----------
-const PRICE_ORDER = ["hay_market", "hay_nass", "soyhulls", "cottonseed", "cgf", "corn", "csm", "urea", "dap", "potash", "diesel", "wage", "rent", "op_rate", "cattle_rate", "prime", "vet_cow", "overhead_cow", "fed_live", "fed_dressed", "corn_omaha", "retail_choice"];
+const PRICE_ORDER = ["hay_market", "hay_nass", "soyhulls", "cottonseed", "cgf", "corn", "csm", "urea", "dap", "potash", "diesel", "wage", "rent", "op_rate", "cattle_rate", "prime", "vet_cow", "overhead_cow", "fed_live", "fed_dressed", "corn_omaha", "grass_half", "grass_quarter", "grass_whole", "retail_choice"];
 // the table's short "where" for each price (the full notes stay in the Excel export)
 const WHERE = { ...SHORT, hay_nass: "Marketing-year average", prime: "Monthly average", rent: "", corn_omaha: "" };
 function drawPrices() {
@@ -1423,7 +1492,7 @@ function drawPrices() {
       `${WHERE[k] ? WHERE[k] + ", " : ""}<b>${p.source}</b>, ${pdate(p)}`, chg ? "chg" : "");
   }).join("");
   $("#pr-tbl").innerHTML = `<table class="tbl prices"><thead><tr><th>Price</th><th>Value</th><th class="hide-sm" style="text-align:left">Source</th></tr></thead><tbody>${rows}
-    ${row("Calf, feeder and cull cattle prices", "", `Mississippi auctions, <b>USDA-AMS, MDAC</b>, ${cattleWeeks()}`)}
+    ${row("Calf, feeder and cull cattle prices", "", `${STATE.name} auctions, <b>${STATE.credit}</b>, ${cattleWeeks()}`)}
     ${row("Live cattle futures and basis", "", `Settles on ${fdate(D.fed.futures[0].date)}; basis ${D.fed.basis_years[0]}–${D.fed.basis_years[1]} average, <b>CME Group, USDA-AMS</b>`)}
     ${row("Chemical, repair and machinery costs", "", `<b>BLS</b> price indexes, ${fmonth(D.ppi.ag_chemicals.date)}: pesticides ${pct(D.ppi.ag_chemicals.ratio)}, machinery parts ${pct(D.ppi.machinery_parts.ratio)}, farm machinery ${pct(D.ppi.ag_machinery.ratio)} from 2025`)}
   </tbody></table>
@@ -1432,29 +1501,31 @@ function drawPrices() {
 const pct = r => `${r >= 1 ? "+" : "−"}${num(Math.abs(r - 1) * 100, 1)}%`;
 // One worksheet per practice: switch lines on or off and change quantities; MSU's
 // printed quantity stays beside each line. Shared by every budget (B2-B5).
-const WS_START = { overseed: "; its phosphate, potash and soil test are left to the permanent pasture" };
+const WS_START = { overseed: "; phosphate and potash are what the ryegrass adds over permanent pasture" };
+const WS_PENDING = { overseed: "Phosphate, potash and mowing adjustments are pending forage specialist review." };
 function drawForageTab() {
   const box = $("#fc-sheets"); if (!box) return;
   box.innerHTML = FORAGE_SYS.map(sys => {
     const a = forageAcre(sys), w = ws(sys), printed = wsPrinted(sys);
     const row = r => {
-      const id = `ws-${sys}-${r.i}`, q = r.i in w.qty ? w.qty[r.i] : r.printed;
+      const id = `ws-${sys}-${r.i}`, q = r.i in w.qty ? w.qty[r.i] : r.start;
       return `<tr class="${r.on ? "" : "off"}">${r.part === "est" ? "<td class=\"on\"></td>" : `<td class="on"><input type="checkbox" id="${id}" data-ws="${sys}" data-i="${r.i}"${r.on ? " checked" : ""}></td>`}
-        <td>${r.part === "est" ? r.item : `<label for="${id}">${r.item}</label>`}<small>${r.how}</small></td>
+        <td>${r.part === "est" ? r.item : `<label for="${id}">${r.item}</label>`}<small>${r.how}${r.note ? `; ${r.note}` : ""}</small></td>
         <td class="num"><input class="wsq" type="number" inputmode="decimal" step="any" min="0" value="${roundFor(q, .01)}" data-wsq="${sys}" data-i="${r.i}" aria-label="${r.item}, your quantity (${r.unit})"> ${r.unit}<small class="show-sm">MSU: ${num(r.printed, 2)}</small></td>
         <td class="num hide-sm">${num(r.printed, 2)}</td><td class="num hide-sm">${usd(r.price, 2)}</td><td class="num">${usd(r.cost, 2)}</td></tr>`;
     };
     const tot = (label, val, cls = "tot") => `<tr class="${cls}"><td></td><td>${label}</td><td></td><td class="hide-sm"></td><td class="hide-sm"></td><td class="num">${usd(val, 2)}</td></tr>`;
     const sec = label => `<tr class="sec"><td colspan="6">${label}</td></tr>`;
     return `<div class="card" data-sheet="${sys}"><h3>${FNAME[sys]} <small style="font-weight:400;color:var(--muted)">MSU table ${a.table}</small></h3>
-      <p class="ws-state${printed ? "" : " changed"}">${printed ? `MSU 2027 forage budget, printed rates${WS_START[sys] || ""}` : "Changed from MSU's printed budget"}</p>
+      <p class="ws-state${printed ? "" : " changed"}">${printed ? `MSU printed rates, establishment not charged${WS_START[sys] || ""}` : "Changed from MSU's printed budget"}</p>
+      ${WS_PENDING[sys] ? `<p class="note" style="margin:0 0 10px">${WS_PENDING[sys]}</p>` : ""}
       <label class="ws-est"><input type="checkbox" data-est="${sys}"${w.est ? " checked" : ""}> Charge establishment (new or renovated stand)</label>
       <div class="scroll"><table class="tbl ws-tbl"><thead><tr><th><span class="sr-only">Used</span></th><th>Item</th><th>Your quantity</th><th class="hide-sm">MSU printed</th><th class="hide-sm">Price</th><th>Per acre</th></tr></thead><tbody>
         ${sec("Operating")}${a.direct.map(row).join("")}${tot("Operating cost per acre", a.d)}
         ${sec("Machinery and establishment")}${a.fixed.map(row).join("")}${tot("Machinery and establishment per acre", a.f)}
         ${tot("Total per acre", a.d + a.f, "net")}</tbody></table></div>
       <div class="btns" style="margin-top:10px"><button type="button" class="btn" data-wsreset="${sys}"${printed ? " disabled" : ""}>Use MSU's printed budget again</button></div></div>`;
-  }).join("") + `<p class="note">Nitrogen is priced as urea and phosphate as DAP, per hundredweight of product. Chemicals and machinery are carried forward from 2025 by BLS price indexes; other items stay at MSU's 2025 prices. Interest is left out here; each budget charges interest on its operating costs once.</p>`;
+  }).join("") + `<p class="note">Nitrogen is priced as urea and phosphate as DAP, per hundredweight of product. MSU's printed budget prices nitrogen as an average of urea, ammonium nitrate and ammonium sulfate. Chemicals and machinery are carried forward from 2025 by BLS price indexes; other items stay at MSU's 2025 prices. Interest is left out here; each budget charges interest on its operating costs once.</p>`;
 }
 function forageEdited() { saveState(); refreshAll(); }
 function wireForageTab() {
@@ -1465,7 +1536,11 @@ function wireForageTab() {
     const w = ws(sys), i = Number(t.dataset.i), it = wsLines(sys)[i];
     if (t.dataset.est) w.est = t.checked ? 1 : 0;
     else if (t.dataset.ws) { if (startsOff(sys, it)) { if (t.checked) w.on[i] = 1; else delete w.on[i]; } else if (t.checked) delete w.off[i]; else w.off[i] = 1; }
-    else { const n = parseFloat(t.value); if (isNaN(n) || n < 0) return; if (Math.abs(n - it.qty) < 1e-9) delete w.qty[i]; else w.qty[i] = n; }
+    else {
+      const n = parseFloat(t.value);
+      if (isNaN(n) || n < 0) { drawForageTab(); return; }      // a blank or bad quantity goes back to what it was (2C5)
+      if (Math.abs(n - startQty(sys, it)) < 1e-9) delete w.qty[i]; else w.qty[i] = n;
+    }
     forageEdited();
   });
   box.addEventListener("click", e => { const b = e.target.closest("[data-wsreset]"); if (b) { WS[b.dataset.wsreset] = wsFresh(); forageEdited(); } });
@@ -1475,14 +1550,16 @@ function about() {
   <p>These budgets start from ${D.month_label} average prices; any number can be changed. Prices update once a month. What you type is kept only in this browser and is not sent anywhere.</p>
   <h3>Where the numbers come from</h3>
   <ul>
-    <li><b>Cattle prices:</b> ${D.month_label} Mississippi auction averages (USDA-AMS and the Mississippi Department of Agriculture and Commerce) by 100-lb weight class; a weight in between gets a price in between. For a sale in another month, the price moves by the usual 5-year seasonal pattern, which assumes the market as a whole doesn't change.</li>
+    <li><b>Cattle prices:</b> ${D.month_label} ${STATE.name} auction averages (USDA-AMS and the ${STATE.agency}) by 100-lb weight class; a weight in between gets a price in between. For a sale in another month, the price moves by the usual 5-year seasonal pattern, which assumes the market as a whole doesn't change.</li>
     <li><b>Fed cattle:</b> CME live cattle futures for the contract in or after the sale month, plus that month's average basis (5-area negotiated live steer price minus nearby futures). Heifers use the same price.</li>
     <li><b>Pasture and hay:</b> MSU Extension's 2027 forage budgets as printed, at the prices below; each line can be changed on the Forage costs tab.</li>
     <li><b>Feed, fertilizer, fuel, labor, rent, interest, vet and overhead:</b> the table below.</li>
-    <li><b>Starting guesses:</b> herd performance, feeding rates, mineral price, labor hours, facilities, health costs, yardage, trucking, and freezer beef prices and processing have no public price series. Replace them with your own.</li>
+    <li><b>USDA-ERS region:</b> vet, overhead, the pasture rental value and the cost comparison use the ${D.ers_regions[REGION].name} region${REGION === STATE.region ? `, which holds most of ${STATE.name}'s beef cows (2022 Census of Agriculture)` : ` (chosen at the top; ${STATE.name} starts on ${D.ers_regions[STATE.region].name}, which holds most of its beef cows)`}.</li>
+    <li><b>Freezer beef:</b> grass-fed prices start from the USDA-AMS National Grass Fed Beef Report (quarterly, direct to consumer, processing not included); grain-fed prices are starting guesses.</li>
+    <li><b>Starting guesses:</b> herd performance, feeding rates, mineral price, labor hours, facilities, health costs, yardage, trucking, and grain-fed freezer beef prices and processing are starting numbers, not published prices.</li>
   </ul>
   <h3>Your budget in past years</h3>
-  <p>Each budget tab ends with a chart of the same budget, with your herd, weights and feeding, priced at each past year's prices (Cow-calf and Stocker chart the return over operating costs) back to ${D.history ? D.history.meta.start.slice(0, 4) : "2011"}. Where Mississippi's auction record has gaps (2003–2005 for every class; heifers, the heaviest feeders and cull cows through 2010), those charts estimate the price from neighboring states' auctions, scaled to Mississippi's; tested on months Mississippi did report, the estimates came within about 3%. Input prices that started recently (fertilizer, local feed and hay, diesel, wages) are carried back with the closest older price. The further back, the rougher.</p>
+  <p>Each budget tab ends with a chart of the same budget, with your herd, weights and feeding, priced at each past year's prices (Cow-calf and Stocker chart the return over operating costs) back to ${D.history ? D.history.meta.start.slice(0, 4) : "2011"}. ${STATE.code === "ms" ? "Where Mississippi's auction record has gaps (2003–2005 for every class; heifers, the heaviest feeders and cull cows through 2010), those charts estimate the price from neighboring states' auctions, scaled to Mississippi's; tested on months Mississippi did report, the estimates came within about 3%." : `Where ${STATE.name}'s auction record has gaps, those charts estimate the price from neighboring states' auctions, scaled to ${STATE.name}'s; years before its record starts are left out.`} Input prices that started recently (fertilizer, local feed and hay, diesel, wages) are carried back with the closest older price. The further back, the rougher.</p>
   <h3>Operating costs or all costs</h3>
   <p>Operating costs are what you spend during the year: feed, pasture upkeep, vet, labor, fuel, repairs, marketing, rent and interest on operating money. All costs adds ownership costs: depreciation on facilities, machinery and bulls, forage establishment, overhead, taxes and insurance. Operating costs shows whether the cattle cover what is spent during the year. All costs shows whether they also cover depreciation, overhead, taxes and insurance. Net return is what is left for your own time, management and any land you own and don't charge rent for. In the cow-calf budget, a bull counts as 1.4 cows and a replacement heifer as 0.7 for pasture, hay and mineral.</p>
   <h3>Cash flow</h3>
@@ -1490,7 +1567,10 @@ function about() {
   <h3>Purchase payoff</h3>
   <p>Follows a bred cow, bred heifer or bull bought now through its years in your herd: each year's calves (for a bull, the extra weaning weight) minus the cost of keeping it and expected death loss, plus its cull value at the end. Calf prices, weights, weaning rate and costs start from your Cow-calf budget. Net present value discounts each year at your interest rate; the break-even purchase price is the price that makes it zero.</p>
   <h3>Retained ownership and freezer beef</h3>
-  <p>Both charge your own calves at what they would bring at a Mississippi auction, less commission, hauling and the checkoff, so their net return is the difference between feeding them out and selling them as calves. Rules for selling beef differ by how it is sold. Contact the Mississippi Department of Agriculture and Commerce for current requirements.</p>
+  <p>Both charge your own calves at what they would bring at a ${STATE.name} auction, less commission, hauling and the checkoff, so their net return is the difference between feeding them out and selling them as calves. Rules for selling beef differ by how it is sold. ${STATE.code === "ms" ? "Contact the Meat Inspection Division of the Mississippi Department of Agriculture and Commerce for current requirements." : "Contact your state's department of agriculture for current requirements."}</p>
+  <h3>Reset everything</h3>
+  <p>Returns every budget, the forage worksheets and market prices to their starting values, and clears what this browser kept.</p>
+  <div class="btns"><button type="button" class="btn" id="reset-all">Reset everything</button></div>
   <p class="note">Prices last updated ${fdate(D.generated)}. Mississippi State University Extension.</p>`;
 }
 
@@ -1499,17 +1579,158 @@ let CCF, STF, ROF, FBF, PPF = null;
 function refreshAll() { [CCF, STF, ROF, FBF, PPF].forEach(f => update(f)); drawPrices(); drawForageTab(); }
 // What the user types is kept in this browser (localStorage) so a refresh keeps it; Start over clears a
 // budget's own inputs. Storage can be off (private windows): the page works without it.
-const STORE = "msu-beef-budgets-v1";
+// Saved inputs carry a version (v) and the data month; version 18's carry neither (read as version 1).
+const STORE = "msu-beef-budgets-v1", STORE_VERSION = 2;
 function saveState() {
   if (!CCF || !STF || !ROF || !FBF || !PPF) return;          // still starting up
   try {
     const forms = {}, prices = {};
     [CCF, STF, ROF, FBF, PPF].forEach(f => { forms[f.key] = { typed: f.typed, mode: f.mode }; });
     Object.entries(D.prices).forEach(([k, p]) => { if (P[k] !== p.value) prices[k] = P[k]; });
-    localStorage.setItem(STORE, JSON.stringify({ forms, prices, forage: WS, report: REPORT }));
+    localStorage.setItem(STORE, JSON.stringify({ v: STORE_VERSION, month: D.month, state: STATE.code, region: REGION, regionChosen: REGION_CHOSEN, forms, prices, forage: WS, report: REPORT }));
   } catch (e) { /* storage unavailable */ }
 }
 function loadState() { try { return JSON.parse(localStorage.getItem(STORE) || "null"); } catch (e) { return null; } }
+function forgetSaved() { try { localStorage.removeItem(STORE); } catch (e) { /* storage unavailable */ } }
+const SPECS = { cc: CC, st: ST, ro: RO, fb: FB, pp: PP };
+// typed prices a new data month replaces (1A2); herd and practice inputs stay
+const MONTH_PRICES = { cc: ["sp", "hp", "cp", "bp", "hayp"], st: ["p0", "p1", "hayp"], ro: ["wp", "fut", "basis", "sp"], fb: ["p0", "hayp", "ph", "pq", "pw"], pp: ["price", "cp", "cullp"] };
+// A saved value is kept only while it's still valid for its field: a choice that's still
+// offered, a 0/1 box, a finite number (1A1).
+function validTyped(spec, typed) {
+  const out = {}, fields = spec.flatMap(g => g.f || []).filter(f => f[1] !== "calc");
+  Object.entries(typed && typeof typed === "object" ? typed : {}).forEach(([id, x]) => {
+    const f = fields.find(ff => ff[0] === id); if (!f) return;
+    const o = f[4] || {};
+    if (o.ws) return;                                    // Simple's pasture questions live in the worksheet
+    if (o.check) { if (x === 0 || x === 1) out[id] = x; return; }
+    if (o.select) { const opts = typeof o.select === "function" ? o.select() : o.select; if (opts.some(([k]) => String(k) === String(x))) out[id] = x; return; }
+    if (typeof x === "number" && Number.isFinite(x)) out[id] = x;
+  });
+  return out;
+}
+function validSheet(sys, w) {
+  const n = wsLines(sys).length, idx = k => /^\d+$/.test(k) && Number(k) < n, out = wsFresh();
+  ["off", "on"].forEach(part => Object.keys((w && w[part]) || {}).forEach(k => { if (idx(k)) out[part][k] = 1; }));
+  Object.entries((w && w.qty) || {}).forEach(([k, x]) => { if (idx(k) && typeof x === "number" && Number.isFinite(x) && x >= 0) out.qty[k] = x; });
+  out.est = w && w.est === 1 ? 1 : 0;
+  return out;
+}
+// Put back what this browser kept: prices, worksheets, report fields, and each budget's typed values.
+// Returns the typed values by budget and a note for a new data month. Throws on anything unusable.
+function restoreSaved(saved) {
+  if (!saved || typeof saved !== "object") return { forms: {}, note: "" };
+  if ((saved.v || 1) > STORE_VERSION) throw new Error("saved by a newer page");
+  const newMonth = !!saved.month && saved.month !== D.month;
+  if (!newMonth) Object.entries(saved.prices || {}).forEach(([k, x]) => { if (D.prices[k] && typeof x === "number" && Number.isFinite(x)) P[k] = x; });
+  Object.entries(saved.forage || {}).forEach(([k, w]) => { if (FORAGE_SYS.includes(k) && w) WS[k] = validSheet(k, w); });
+  ["for", "by", "notes"].forEach(k => { if (typeof (saved.report || {})[k] === "string") REPORT[k] = saved.report[k]; });
+  const forms = {};
+  Object.entries(SPECS).forEach(([key, spec]) => {
+    const g = (saved.forms || {})[key]; if (!g) return;
+    const typed = validTyped(spec, g.typed);
+    if (newMonth) (MONTH_PRICES[key] || []).forEach(k => delete typed[k]);
+    forms[key] = { typed, mode: g.mode === "simple" || g.mode === "full" ? g.mode : null };
+  });
+  return { forms, note: newMonth ? `Prices updated to ${D.month_label}. Your herd numbers were kept.` : "" };
+}
+function startForms(saved) {
+  CCF = makeForm(CC, "cc"); STF = makeForm(ST, "st"); ROF = makeForm(RO, "ro"); FBF = makeForm(FB, "fb"); PPF = makeForm(PP, "pp");
+  CCF.mode = STF.mode = "simple";
+  [CCF, STF, ROF, FBF, PPF].forEach(f => { const g = saved[f.key]; if (g) { Object.assign(f.typed, g.typed); if (g.mode && f.mode) f.mode = g.mode; } });
+  [CCF, STF, ROF, FBF, PPF].forEach(f => { render(f); update(f); });
+}
+function resetShared() {     // prices, worksheets and report fields back to their starting values
+  Object.entries(D.prices).forEach(([k, p]) => P[k] = p.value);
+  Object.keys(WS).forEach(k => delete WS[k]);
+  REPORT.for = REPORT.by = REPORT.notes = "";
+}
+// ---------- state and USDA-ERS region (stage 3) ----------
+// Mississippi's data is in prices.json; another state's auction prices, history, rent and wage
+// load from data/states/{code}.json only when it's chosen. Feed, hay, fertilizer, diesel, the
+// interest rate and the MSU forage worksheets stay Mississippi's for every state (3E).
+let MS_DATA = null, REGION_CHOSEN = false;
+const STATE_CACHE = {};
+const MS_FIELDS = new Set(["hayp", "feed", "fcP", "fcW", "fcH", "fcG", "fuP", "fuW", "fuH", "fuG", "wsN", "wsPK", "wsWeed"]);
+const MS_PRICES = new Set(["urea", "dap", "potash", "diesel", "soyhulls", "cottonseed", "cgf", "corn", "csm"]);
+// prices that follow the state: a typed one is dropped when the state changes
+const STATE_PRICES = { cc: ["sp", "hp", "cgrade", "cwt_", "cp", "bp"], st: ["p0", "p1"], ro: ["wp"], fb: ["p0"], pp: ["cp", "cullwt", "cullp"] };
+function msTag(el) {        // "Mississippi" beside a field whose number stays Mississippi's (3E)
+  const l = el.querySelector("label"); if (!l) return;
+  const t = l.querySelector(".mstag"), want = STATE.code !== "ms";
+  if (want && !t) l.insertAdjacentHTML("beforeend", ' <span class="mstag">Mississippi</span>');
+  if (!want && t) t.remove();
+}
+function keepMississippi() {
+  MS_DATA = { code: "ms", name: D.state.name, credit: D.state.credit, agency: D.state.agency, region: D.state.region, meta: null,
+    cattle: D.cattle, months: D.history ? D.history.months : null, prices: { rent: D.prices.rent, wage: D.prices.wage },
+    ers: D.ers, erp: { vet_cow: D.prices.vet_cow, overhead_cow: D.prices.overhead_cow, grazed_feed: D.prices.grazed_feed } };
+}
+const stateCodes = () => (D.states || []).map(x => x.code);
+function stateData(code) {
+  if (code === "ms") return Promise.resolve(MS_DATA);
+  if (!STATE_CACHE[code]) STATE_CACHE[code] = fetch(`data/states/${code}.json`).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .catch(e => { delete STATE_CACHE[code]; throw e; });
+  return STATE_CACHE[code];
+}
+function useState(sd) {     // put a state's prices, history, rent and wage in place
+  STATE = { code: sd.code.toLowerCase(), name: sd.name, credit: sd.credit, agency: sd.agency, region: sd.region, meta: sd.meta || null };
+  D.cattle = sd.cattle;
+  if (D.history && MS_DATA.months) {
+    D.history.months = sd === MS_DATA ? MS_DATA.months : MS_DATA.months.map(rec => {
+      const h = sd.history[rec.m] || {};
+      return { ...rec, slide: h.slide || { Steers: null, Heifers: null }, cow: h.cow ?? null, bull: h.bull ?? null, P: { ...rec.P, rent: h.rent ?? null, wage: h.wage ?? null } };
+    });
+    delete D.history._by;
+  }
+  ["rent", "wage"].forEach(k => { const p = (sd === MS_DATA ? MS_DATA.prices : sd.prices)[k]; if (p) { D.prices[k] = p; P[k] = p.value; } });
+  SHORT.rent = `${sd.name} average`; SHORT.wage = `${sd.name} beef cattle ranch wage`;
+}
+function useRegion(reg) {   // the USDA-ERS region's vet, overhead and pasture rental value (3D)
+  const R = D.ers_regions && D.ers_regions[reg]; if (!R) return;
+  REGION = reg;
+  if (reg === MS_DATA.region) { D.ers = MS_DATA.ers; Object.assign(D.prices, MS_DATA.erp); REGION_YEARS = null; }
+  else {
+    const it = R.items, when = String(R.year), date = `${R.year}-01-01`, ratio = D.ppi.anti_infective_drugs.ratio;
+    D.ers = { ...it, year: R.year };
+    D.prices.vet_cow = { ...MS_DATA.erp.vet_cow, value: it.veterinary_and_medicine * ratio, date, when,
+      note: `USDA-ERS ${R.name} cow-calf average for ${R.year} ($${it.veterinary_and_medicine.toFixed(2)}/cow), carried forward with the BLS producer price index for animal anti-infective drugs.` };
+    D.prices.overhead_cow = { ...MS_DATA.erp.overhead_cow, value: it.general_farm_overhead + it.taxes_and_insurance, date, when, note: `USDA-ERS ${R.name} cow-calf average for ${R.year}.` };
+    D.prices.grazed_feed = { ...MS_DATA.erp.grazed_feed, value: it.grazed_feed, date, when,
+      note: `USDA-ERS ${R.name} cow-calf grazed feed for ${R.year}: the rental value of pasture, a flat amount per cow.` };
+    REGION_YEARS = R.years;
+  }
+  ["vet_cow", "overhead_cow", "grazed_feed"].forEach(k => { P[k] = D.prices[k].value; });
+  SHORT.vet_cow = `${R.name} average, carried forward`; SHORT.overhead_cow = `${R.name} average`;
+}
+function dropStatePrices() {
+  [CCF, STF, ROF, FBF, PPF].forEach(f => {
+    (STATE_PRICES[f.key] || []).forEach(k => delete f.typed[k]);
+    const ok = validTyped(SPECS[f.key], f.typed); Object.keys(f.typed).forEach(k => { if (!(k in ok)) delete f.typed[k]; });
+  });
+}
+function stateText() {      // everything on the page that names the state or region
+  $("#asof").innerHTML = `${D.month_label} average prices for ${STATE.name}, updated monthly. For this week's auction prices, see <a href="../cattleprices/?state=${STATE.code}">Cattle Auction Prices</a>.`;
+  $("#state-sel").value = STATE.code; $("#region-sel").value = REGION;
+  $("#ms-note").hidden = STATE.code === "ms";
+  document.querySelectorAll("[data-state-name]").forEach(e => { e.textContent = STATE.name; });
+  const a = $("#ab-auction-link"); if (a) a.href = `../cattleprices/?state=${STATE.code}#week`;
+  about();
+  try {     // ?state= in the address; Mississippi, the starting state, needs none
+    const u = new URL(location.href);
+    if (STATE.code === "ms") u.searchParams.delete("state"); else u.searchParams.set("state", STATE.code);
+    history.replaceState(null, "", u.pathname + u.search + u.hash);
+  } catch (e) { /* the address stays as it is */ }
+}
+async function applyState(code, opts = {}) {
+  if (!stateCodes().includes(code)) code = "ms";
+  let sd;
+  try { sd = await stateData(code); } catch (e) { console.warn(`State ${code} didn't load:`, e); sd = MS_DATA; }
+  useState(sd);
+  REGION_CHOSEN = !!(opts.region && D.ers_regions && D.ers_regions[opts.region]);
+  useRegion(REGION_CHOSEN ? opts.region : sd.region);
+  if (opts.redraw !== false) { dropStatePrices(); refreshAll(); stateText(); }
+}
 const TABS = ["cc", "pp", "st", "ro", "fb", "fc", "ab"];
 // tab names in the address (Data_Forecasts/ADDRESS_STANDARD.md): plain words; the short codes used before 11/2026
 // and the old Prices used tab (#pr, now in How it works) keep opening their tab. Never rename a name.
@@ -1524,11 +1745,16 @@ function showTab(t) {
   if (bar) bar.scrollLeft += cur.getBoundingClientRect().left - bar.getBoundingClientRect().left - (bar.clientWidth - cur.offsetWidth) / 2;
   try { history.replaceState(null, "", location.pathname + location.search + "#" + (ADDR[t] || t)); } catch (e) {}
 }
-fetch("data/prices.json").then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).then(data => {
+fetch("data/prices.json").then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).then(async data => {
   D = data;
   Object.entries(D.prices).forEach(([k, p]) => P[k] = p.value);
+  // the state: the address (?state=) first, then the one this browser kept, then Mississippi (3A)
+  keepMississippi();
+  const kept = loadState() || {}, asked = (new URLSearchParams(location.search).get("state") || "").toLowerCase();
+  const first = stateCodes().includes(asked) ? asked : stateCodes().includes(kept.state) ? kept.state : "ms";
+  await applyState(first, { redraw: false, region: kept.regionChosen && kept.state === first ? kept.region : null });
   $("#load").remove();
-  $("#asof").innerHTML = `${D.month_label} average prices for Mississippi, updated monthly. For this week's auction prices, see <a href="https://agecontools.github.io/cattleprices/">Cattle Auction Prices</a>.`;
+  $("#asof").innerHTML = `${D.month_label} average prices for ${STATE.name}, updated monthly. For this week's auction prices, see <a href="../cattleprices/?state=${STATE.code}">Cattle Auction Prices</a>.`;
   if (Date.now() - new Date(D.generated) > 40 * 864e5)   // the monthly update missed a month
     $("#asof").insertAdjacentHTML("afterend", `<p class="stale" role="status">These are ${D.month_label} prices; the monthly update is late. Enter your own prices, or check back soon.</p>`);
   {   // footer: prices, page version and build time in Central time; copyright year from the build date
@@ -1538,14 +1764,12 @@ fetch("data/prices.json").then(r => { if (!r.ok) throw new Error(r.status); retu
     $("#foot-year").textContent = ok ? ct({ year: "numeric" }) : D.generated.slice(0, 4);
   }
   document.querySelectorAll("[data-month]").forEach(e => { e.textContent = D.month_label; });
-  const saved = loadState() || {};
-  Object.entries(saved.prices || {}).forEach(([k, x]) => { if (D.prices[k] && typeof x === "number") P[k] = x; });
-  Object.entries(saved.forage || {}).forEach(([k, w]) => { if (FORAGE_SYS.includes(k) && w) WS[k] = { ...wsFresh(), ...w }; });
-  Object.assign(REPORT, saved.report || {});
-  CCF = makeForm(CC, "cc"); STF = makeForm(ST, "st"); ROF = makeForm(RO, "ro"); FBF = makeForm(FB, "fb"); PPF = makeForm(PP, "pp");
-  CCF.mode = STF.mode = "simple";
-  [CCF, STF, ROF, FBF, PPF].forEach(f => { const g = (saved.forms || {})[f.key]; if (g) { Object.assign(f.typed, g.typed || {}); if (g.mode) f.mode = g.mode; } });
-  [CCF, STF, ROF, FBF, PPF].forEach(f => { render(f); update(f); });
+  // saved inputs never break the page: anything unusable is dropped and the starting values load (1A1)
+  let note = "";
+  try { const r = restoreSaved(loadState()); note = r.note; startForms(r.forms); }
+  catch (e) { console.warn("Saved inputs set aside:", e); forgetSaved(); resetShared(); note = ""; startForms({}); }
+  if (note) $("#asof").insertAdjacentHTML("afterend", `<p class="stale" role="status" id="month-note">${note}</p>`);
+  saveState();
   const PP_BY_KIND = ["head", "price", "years", "death", "cullwt", "cullp"];
   document.querySelectorAll("#pp-seg button").forEach(b => b.addEventListener("click", () => {
     PPF.typed.kind = b.dataset.kind; PP_BY_KIND.forEach(k => delete PPF.typed[k]); update(PPF);
@@ -1558,11 +1782,27 @@ fetch("data/prices.json").then(r => { if (!r.ok) throw new Error(r.status); retu
   })));
   document.querySelectorAll("[data-view-for]").forEach(seg => seg.querySelectorAll("button").forEach(b => b.addEventListener("click", () => showView(seg.dataset.viewFor, b.dataset.view))));
   document.querySelectorAll("#fb-seg button").forEach(b => b.addEventListener("click", () => { FBF.typed.sys = b.dataset.sys; update(FBF); }));
-  drawPrices(); drawForageTab(); wireForageTab(); about();
+  $("#state-sel").innerHTML = D.states.map(x => `<option value="${x.code}">${x.name}</option>`).join("");
+  $("#region-sel").innerHTML = Object.entries(D.ers_regions).sort((a, b) => (a[0] === "us") - (b[0] === "us") || a[1].name.localeCompare(b[1].name))
+    .map(([k, r]) => `<option value="${k}">${k === "us" ? "U.S. average" : r.name}</option>`).join("");
+  $("#place").hidden = false;
+  $("#state-sel").addEventListener("change", async e => { await applyState(e.target.value); saveState(); });
+  $("#region-sel").addEventListener("change", e => { REGION_CHOSEN = true; useRegion(e.target.value); refreshAll(); stateText(); saveState(); });
+  drawPrices(); drawForageTab(); wireForageTab(); stateText();
   document.querySelectorAll(".tab").forEach(b => b.addEventListener("click", () => showTab(b.dataset.tab)));
   ["cc", "st", "ro", "fb", "pp"].forEach(renderExports);
   document.querySelectorAll("[data-rep]").forEach(inp => { inp.value = REPORT[inp.dataset.rep] || ""; inp.addEventListener("input", saveState); });
   document.querySelectorAll("[data-reset]").forEach(b => b.addEventListener("click", () => { const f = { cc: CCF, st: STF, ro: ROF, fb: FBF, pp: PPF }[b.dataset.reset]; f.reset(); update(f); }));
+  document.addEventListener("click", e => {             // "Build my pasture cost" (2B2)
+    if (e.target.closest("[data-build-pasture]")) { CCF.typed.fcP = "build"; update(CCF); const q = $("#cc-wsN"); if (q) q.focus(); }
+  });
+  document.addEventListener("click", e => { if (!e.target.closest("#reset-all")) return;      // 1A3 (How it works redraws)
+    forgetSaved(); resetShared();
+    [CCF, STF, ROF, FBF, PPF].forEach(f => f.reset()); CCF.mode = STF.mode = "simple";
+    document.querySelectorAll("[data-rep]").forEach(inp => { inp.value = ""; });
+    const mn = $("#month-note"); if (mn) mn.remove();
+    refreshAll();
+  });
   const h = tabFor(location.hash.slice(1));
   showTab(TABS.includes(h) ? h : "cc");
   addEventListener("hashchange", () => { const k = tabFor(location.hash.slice(1)); if (TABS.includes(k)) showTab(k); });
