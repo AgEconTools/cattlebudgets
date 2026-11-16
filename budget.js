@@ -51,15 +51,19 @@ const EST_RE = /^Prorated establishment/;
 // The overseeded ryegrass sheet (MSU table 30, a full-year budget for the overseeded pasture)
 // holds what the ryegrass adds over the permanent pasture (table 11): its soil test (shared
 // with table 11) starts off, and phosphate and potash start at table 30's rates less table
-// 11's (2.0 - 1.0 and 1.5 - 1.0 cwt). Pending forage specialist review (2C2).
+// 11's (2.0 - 1.0 and 1.5 - 1.0 cwt) (2C2).
 const FORAGE_OFF = { overseed: /^Soil testing/ };
 const FORAGE_QTY = { overseed: [[/^Phosphate/, 1.0], [/^Potash/, 0.5]] };
 const startQty = (sys, it) => { const q = (FORAGE_QTY[sys] || []).find(([re]) => re.test(it.item)); return q ? q[1] : it.qty; };
 const startNote = (sys, it) => (FORAGE_QTY[sys] || []).some(([re]) => re.test(it.item)) ? "added over permanent pasture" : "";
 const WS = {};                 // per practice: { off: {line: 1}, on: {line: 1}, qty: {line: n}, est: 0 or 1 }
+// Nitrogen is carried as lb of actual N, priced at urea per lb of N. MSU prints it as cwt of a
+// blend (about 37% N: 80 lb on 2.14 cwt in table 11); n_lb holds the N in the printed cwt and
+// cwt stays beside it as MSU's printed quantity.
+const N_LINE = it => it.n_lb != null ? { ...it, cwt: it.qty, qty: it.n_lb, unit: "lb N", price_key: "urea_n" } : it;
 function wsLines(sys) {
   const S = D.forage.systems[sys];
-  return S.direct.map(it => ({ ...it, part: "direct" })).concat(S.fixed.map(it => ({ ...it, part: EST_RE.test(it.item) ? "est" : "fixed" })));
+  return S.direct.map(it => ({ ...N_LINE(it), part: "direct" })).concat(S.fixed.map(it => ({ ...it, part: EST_RE.test(it.item) ? "est" : "fixed" })));
 }
 const wsFresh = () => ({ off: {}, on: {}, qty: {}, est: 0 });
 const ws = sys => WS[sys] || (WS[sys] = wsFresh());
@@ -69,8 +73,11 @@ function wsPrinted(sys) {     // still MSU's printed budget (the starting state)
   const w = ws(sys);
   return !w.est && !Object.keys(w.off).length && !Object.keys(w.on).length && !Object.keys(w.qty).length;
 }
+const wsHasEst = sys => wsLines(sys).some(it => it.part === "est");   // no-till ryegrass (table 28) has no establishment line
+const wsStateText = sys => wsPrinted(sys) ? `MSU printed rates${wsHasEst(sys) ? ", establishment not charged" : ""}` : "Changed from MSU's printed budget";
+const printedText = r => r.cwt != null ? `${num(r.cwt, 2)} cwt` : num(r.printed, 2);   // nitrogen: MSU's printed cwt of product
 function linePrice(it) {
-  const live = { urea: () => P.urea / 20, dap: () => P.dap / 20, potash: () => P.potash / 20, diesel: () => P.diesel, wage: () => P.wage };
+  const live = { urea_n: () => P.urea / 2000 / 0.46, urea: () => P.urea / 20, dap: () => P.dap / 20, potash: () => P.potash / 20, diesel: () => P.diesel, wage: () => P.wage };
   if (it.price_key) return { price: live[it.price_key](), how: `${D.month_label} average` };
   if (it.index) return { price: it.price * D.ppi[it.index].ratio, how: "2025 price × BLS index" };
   return { price: it.price, how: "MSU 2025 price" };
@@ -81,7 +88,7 @@ function forageAcre(sys, how = "build") {
   const rows = wsLines(sys).map((it, i) => {
     const on = w ? lineOn(sys, it, i, w) : true, p = linePrice(it);
     const qty = on ? (w ? (i in w.qty ? w.qty[i] : startQty(sys, it)) : it.qty) : 0;
-    return { i, item: it.item, unit: it.unit, part: it.part, printed: it.qty, start: startQty(sys, it), note: startNote(sys, it),
+    return { i, item: it.item, unit: it.unit, part: it.part, printed: it.qty, cwt: it.cwt, start: startQty(sys, it), note: startNote(sys, it),
              qty, on, price: p.price, how: p.how, cost: qty * p.price };
   });
   const sum = parts => rows.filter(r => parts.includes(r.part)).reduce((t, r) => t + r.cost, 0);
@@ -110,11 +117,10 @@ function fcSrc(v, role, sys) {
 }
 // The three permanent pasture questions in Simple view write to the shared worksheet.
 const wsIdx = (sys, re) => wsLines(sys).findIndex(it => re.test(it.item));
-const N_PER_CWT = 46;                         // lb of nitrogen in a hundredweight of urea (46-0-0)
-function wsN() { const i = wsIdx("pasture", /^Nitrogen/), it = wsLines("pasture")[i], w = ws("pasture"); return lineOn("pasture", it, i) ? (i in w.qty ? w.qty[i] : it.qty) * N_PER_CWT : 0; }
+function wsN() { const i = wsIdx("pasture", /^Nitrogen/), it = wsLines("pasture")[i], w = ws("pasture"); return lineOn("pasture", it, i) ? (i in w.qty ? w.qty[i] : it.qty) : 0; }   // lb N an acre
 function setWsN(lb) {
-  if (Math.abs(lb - wsN()) < 0.5) return;       // the rounded number already shown (98 for 98.44 lb) changes nothing (2C4)
-  const i = wsIdx("pasture", /^Nitrogen/), w = ws("pasture"); delete w.off[i]; w.qty[i] = Math.max(0, lb) / N_PER_CWT;
+  if (Math.abs(lb - wsN()) < 0.5) return;       // the rounded number already shown changes nothing (2C4)
+  const i = wsIdx("pasture", /^Nitrogen/), w = ws("pasture"); delete w.off[i]; w.qty[i] = Math.max(0, lb);
 }
 const PK_RE = /^(Phosphate|Potash)/, WEED_RE = /^(GrazonNext|Surfactant)/;
 function wsHas(re) { const L = wsLines("pasture"); return L.some((it, i) => re.test(it.item) && lineOn("pasture", it, i)); }
@@ -138,6 +144,11 @@ function forageFields(role, name, sysOf, show = () => true, ers = false) {
 // The three permanent pasture questions; they write to the Forage costs worksheet.
 // Cow-calf asks them in both views once its pasture is built from the worksheet (2B2);
 // Stocker asks them in Simple view.
+const WSQ_NOTE = "The three pasture answers below are shared by every budget and the Forage costs tab.";
+function wsQuestionsReset() {   // Start over on Cow-calf or Stocker puts the three answers back to MSU's printed lines
+  const w = ws("pasture");
+  wsLines("pasture").forEach((it, i) => { if (/^Nitrogen/.test(it.item) || PK_RE.test(it.item) || WEED_RE.test(it.item) || SPREAD_RE.test(it.item)) { delete w.off[i]; delete w.qty[i]; } });
+}
 function pastureQuestions(show, simpleOnly = true) {
   return [
     ["wsN", "Nitrogen on permanent pasture", "lb N/acre", () => Math.round(wsN()), { simple: true, simpleOnly, step: 5, show, ws: x => { setWsN(x); spreadRule(); } }],
@@ -156,8 +167,10 @@ const ccErs = v => (v.fcP || "ers") === "ers";
 const ccRentUsed = v => !ccErs(v) || v.haysrc === "raise" || (v.wacres > 0 && v.wsys === "ryegrass");
 function pastureBox(v) {
   const avg = `${usd(P.grazed_feed, 2)} per cow`;
-  if ((v.fcP || "ers") === "ers")
-    return `Regional average: ${avg} (USDA-ERS, ${ersYear()}). Not your farm. <button type="button" class="btn" data-build-pasture>Build my pasture cost</button>`;
+  if ((v.fcP || "ers") === "ers") {   // say what Build starts from, and its cost, before the click
+    const b = { ...v, fcP: "build" }, rent = v.chrent ?? 1;
+    return `Regional average: ${avg} (USDA-ERS, ${ersYear()}). Not your farm. Building your own starts from MSU's pasture budget, every acre fertilized and sprayed${rent ? ", plus rent" : ""}: ${usd(pastureCow({ ...b, chrent: rent }), 2)} per cow at ${num(v.acres, 1)} acres. <button type="button" class="btn" data-build-pasture>Build my pasture cost</button>`;
+  }
   return `Yours: ${usd(pastureCow(v), 2)} per cow. Regional average: ${usd(P.grazed_feed, 2)}. <a href="#forage">Forage costs tab</a>`;
 }
 const FEEDS = [["soyhulls", "Soybean hull pellets"], ["cottonseed", "Whole cottonseed"], ["cgf", "Corn gluten feed pellets"], ["corn", "Shelled corn"], ["csm", "Cottonseed meal (41%)"]];
@@ -192,11 +205,12 @@ const CC = [
   ]},
   { g: "Pasture and hay", open: true, f: [
     ["acres", "Pasture acres per cow", "acres", 2.5, { simple: true, step: .1, show: v => !ccErs(v), src: () => "Includes ground for bulls and replacement heifers" }],
-    ["psys", "Pasture", "", "pasture", { wide: true, select: () => [["pasture", SYSTEMS.pasture]] }],
+    ["psys", "Pasture", "", "pasture", { show: () => false, select: () => [["pasture", SYSTEMS.pasture]] }],   // one choice: not shown
     ["wacres", "Winter annual pasture per cow", "acres", 0, { step: .1 }],
     ["wsys", "Winter annual", "", "overseed", { wide: true, show: v => v.wacres > 0, select: () => [["overseed", SYSTEMS.overseed], ["ryegrass", SYSTEMS.ryegrass]] }],
     ...forageFields("P", "Permanent pasture", v => v.psys, () => true, true),
     ["_pasture", "calc", v => pastureBox(v), { simple: true, html: true }],
+    ["_wsq", "calc", () => WSQ_NOTE, { simple: true, show: v => v.fcP === "build" }],
     ...pastureQuestions(v => v.fcP === "build", false),
     ...forageFields("W", "Winter annual", v => v.wsys, v => v.wacres > 0),
     ["hayday", "Hay fed per cow per day", "lb", 28, { step: 1 }],
@@ -234,7 +248,6 @@ const CC = [
   { g: "Ownership costs", f: [
     ["fac", "Pens, chute, fence, water, trailer per cow", "$/year", 125, { step: 5, src: () => "A starting guess. Alabama Extension's cow-calf cost studies report $109 to $277 a cow in depreciation." }],
     ["bullcost", "Price of a replacement bull", "$", 7000, { step: 250 }],
-    ["bkeep", "Yearly cost to keep a bull", "$", v => bullKeep(v), { step: 10, src: () => "1.4 times a cow's pasture, hay, supplement, mineral and vet costs. Used by Purchase payoff; already counted in the lines above." }],
     ["ovh", "Overhead, property taxes and insurance per cow", "$", () => P.overhead_cow, { step: 1, src: () => priceSrc("overhead_cow") }],
     ["cowint", "Charge interest on money tied up in cows", "", 0, { check: true }],
     ["cowval", "Value of a bred cow", "$", 3000, { step: 100, show: v => v.cowint }],
@@ -258,7 +271,7 @@ const ST = [
     ["head", "Head bought", "head", 60, { simple: true, step: 1 }],
     ["cls", "Steers or heifers", "", "Steers", { simple: true, select: [["Steers", "Steers"], ["Heifers", "Heifers"]] }],
     ["bmonth", "Month bought", "", 10, { simple: true, select: MONTHS_LONG.map((m, i) => [i, m]) }],   // November: ryegrass is ready; 180 days sells them in May, after the spring growth
-    ["season", "Adjust prices for the usual seasonal pattern", "", 1, { check: true }],
+    ["season", "Adjust prices for the usual seasonal pattern", "", 1, { simple: true, check: true }],
     ["w0", "Purchase weight", "lb", 450, { simple: true, step: 10 }],
     ["p0", "Purchase price", "$/cwt", v => slide(v.cls, v.w0) * (v.season ? seasonAdj(v.cls, v.w0, v.bmonth) : 1), { simple: true, step: 1, src: v => calfSrc(v.cls, v.w0, v, v.bmonth) }],
     ["days", "Days owned", "days", 180, { simple: true, step: 5 }],
@@ -273,6 +286,7 @@ const ST = [
     ["sys", "Grazing", "", "ryegrass", { simple: true, wide: true, select: () => [["ryegrass", SYSTEMS.ryegrass], ["overseed", SYSTEMS.overseed], ["pasture", SYSTEMS.pasture], ["custom", "Pay for grazing by the day"]] }],
     ["stock", "Head per acre", "head", 1.5, { simple: true, step: .1, show: v => v.sys !== "custom" }],
     ...forageFields("G", "Grazing", v => v.sys, v => v.sys !== "custom"),
+    ["_wsq", "calc", () => WSQ_NOTE, { simple: true, simpleOnly: true, show: v => v.sys === "pasture" && (v.fcG || "build") === "build" }],
     ...pastureQuestions(v => v.sys === "pasture" && (v.fcG || "build") === "build"),
     ["gday", "Grazing charge", "$/head/day", 0.75, { simple: true, step: .05, show: v => v.sys === "custom" }],
     ["hayt", "Hay per head", "tons", 0.2, { step: .05 }],
@@ -898,7 +912,7 @@ const PP = [
   { g: "Yearly costs", open: true, f: [
     ["cost", "Yearly cost to keep a cow", "$/cow", v => coverOp(v) ? ccBase().opPerCow : ccBase().costPerCow, { step: 10, show: isFemale,
       src: v => `Your Cow-calf budget's ${coverOp(v) ? "operating costs" : "costs"} per cow, without marketing` }],
-    ["bcost", "Yearly cost to keep the bull", "$/bull", () => ccBase().v.bkeep, { step: 10, show: isBull, src: () => "From your Cow-calf budget (Full view, Ownership costs)" }],
+    ["bcost", "Yearly cost to keep the bull", "$/bull", () => bullKeep(ccBase().v), { step: 10, show: isBull, src: () => "1.4 times a cow's pasture, hay, supplement, mineral and vet costs in your Cow-calf budget" }],
   ]},
   { g: "When culled", f: [
     ["cullwt", "Weight when culled", "lb", v => isBull(v) ? ccBase().v.bwt : ccBase().v.cwt_, { step: 25 }],

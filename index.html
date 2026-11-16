@@ -96,7 +96,7 @@ h3 { font: 700 17px/1.3 var(--body); margin: 0 0 10px; }
 .tile { background: var(--surface); border: 1px solid var(--rule); border-radius: var(--r); padding: 14px 16px; min-width: 0; }
 .tile b { display: block; font: 700 clamp(20px, 3vw, 26px)/1.15 var(--body); font-variant-numeric: tabular-nums; }
 .tile span { display: block; font-size: 13px; color: var(--muted); margin-top: 2px; }
-.tile.pos b { color: var(--pos); } .tile.neg b { color: var(--neg); }
+.tile.pos b, .tile.pair .pos b { color: var(--pos); } .tile.neg b, .tile.pair .neg b { color: var(--neg); }
 
 /* layout: inputs left, budget right */
 .cols { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 20px; align-items: start; }
@@ -171,6 +171,7 @@ details.grp > summary small { font-weight: 500; color: var(--muted); font-size: 
 .ws-tbl th:nth-child(2), .ws-tbl td:nth-child(2) { text-align: left; }
 .tbl tr.off td:not(.on) { color: var(--muted); }
 .tbl input.wsq { width: 5.5em; text-align: right; border: 1px solid var(--field-rule); border-radius: 6px; padding: 4px 6px; background: var(--field); font: inherit; font-variant-numeric: tabular-nums; color: inherit; }
+@media (max-width: 560px) { .tbl input.wsq { width: 4.2em; padding: 4px; } .ws-tbl td:nth-child(3) { white-space: normal; } }   /* Per acre stays on screen at phone width */
 .assume-body { padding: 0 16px 6px; }
 .assume-body p { margin: 0 0 8px; font-size: 13.5px; color: var(--ink-2); max-width: 78ch; }
 .hchart { width: 100%; height: auto; display: block; }
@@ -255,8 +256,36 @@ footer .legal { display: grid; gap: 8px; margin-top: 18px; }
 .legal .note { max-width: 90ch; }
 .legal .note a { color: inherit; }
 .load { padding: 40px 0; color: var(--muted); }
+/* phone (review of version 23, G): the notes under the switches fold away, a one-line result stays in view,
+   and the tab bar shows when more tabs are off to the side */
+details.modehelp { flex-basis: 100%; }
+details.modehelp > summary { cursor: pointer; color: var(--link); font-size: 13.5px; }
+details.modehelp .note { margin: 6px 0 0; }
+@media (min-width: 561px) { details.modehelp > summary { display: none; } }
+.sticky-res { display: none; }
+.panel .card { scroll-margin-top: 64px; }   /* clear of the sticky tab bar when the Budget button scrolls to it */
+@media (max-width: 560px) {
+  .sticky-res.on { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; gap: 10px; align-items: center; justify-content: space-between;
+    padding: 8px 16px calc(8px + env(safe-area-inset-bottom)); background: var(--surface); border-top: 1px solid var(--rule); box-shadow: 0 -2px 8px rgba(0,0,0,.08); font-size: 14px; }
+  .sticky-res b { font-variant-numeric: tabular-nums; }
+  .sticky-res.pos b { color: var(--pos); } .sticky-res.neg b { color: var(--neg); }
+  .sticky-res button { flex: 0 0 auto; }
+  body.has-sticky { padding-bottom: 56px; }
+  .modebar { gap: 8px 12px; } .modebar .top-reset { order: 1; } details.modehelp { order: 2; }   /* Start over beside Simple/Full */
+}
+.tabs { --cue: var(--bg); }
+.tabs .cue { position: absolute; top: 0; bottom: 1px; width: 44px; display: none; align-items: center; pointer-events: none; font-size: 22px; font-weight: 700; color: var(--ink-2); }
+.tabs .cue.r { right: 0; justify-content: flex-end; padding-right: 6px; background: linear-gradient(to right, transparent, var(--cue) 60%); }
+.tabs .cue.l { left: 0; justify-content: flex-start; padding-left: 6px; background: linear-gradient(to left, transparent, var(--cue) 60%); }
+.tabs.more-r .cue.r, .tabs.more-l .cue.l { display: flex; }
+.print-only { display: none; }
 @media print {
   .tabs, .inputs, .btns, footer .noprint { display: none !important; }
+  .place, #ms-note, .tools-line, .tools-strip, .modebar, .viewseg, .top-reset, .exports, .readout, .sticky-res, details.hist-tbl, .tabs .cue { display: none !important; }
+  .print-only { display: block !important; }
+  .assume { columns: 2; column-gap: 24px; font-size: 11px; margin: 10px 0; }
+  .assume h4 { margin: 6px 0 2px; font-size: 11.5px; break-after: avoid; }
+  .assume p { margin: 0; break-inside: avoid; }
   .cols { grid-template-columns: 1fr; }
   .mast { background: none; color: #000; border-bottom: 2px solid #000; }
   body { background: #fff; }
@@ -266,7 +295,7 @@ footer .legal { display: grid; gap: 8px; margin-top: 18px; }
 </head>
 <body>
 <header class="mast"><div class="wrap">
-  <p class="kicker">Mississippi State University Extension &middot; Beta</p>
+  <p class="kicker">Mississippi State University Extension</p>
   <h1>Beef cattle budgets</h1>
   <p class="asof" id="asof">Loading prices&hellip;</p>
   <div class="place" id="place" hidden><label for="state-sel">State</label><select id="state-sel"></select>
@@ -343,7 +372,8 @@ footer .legal { display: grid; gap: 8px; margin-top: 18px; }
         <button type="button" role="radio" data-mode="simple">Simple</button>
         <button type="button" role="radio" data-mode="full">Full</button>
       </div>
-      <p class="note">Operating costs: what is spent during the year. All costs: also depreciation, facilities, overhead, taxes and insurance.</p>
+      <p class="note">Simple asks what most producers know and fills in the rest with starting numbers and <span data-month></span> average prices. Full shows every cost and price.</p>
+      <p class="note">Operating costs: what is spent while you own the cattle. All costs: also depreciation, facilities, overhead, taxes and insurance.</p>
       <button type="button" class="btn top-reset" data-reset="st">Start over</button>
     </div>
     <div class="tiles" id="st-tiles"></div>
@@ -405,7 +435,7 @@ footer .legal { display: grid; gap: 8px; margin-top: 18px; }
       <button type="button" role="radio" data-sys="grain">Grain-fed</button>
       <button type="button" role="radio" data-sys="grass">Grass-fed</button>
     </div>
-      <p class="note">Operating costs: what is spent during the year. All costs: also depreciation, facilities, overhead, taxes and insurance.</p>
+      <p class="note">Operating costs: what is spent while you own the cattle. All costs: also depreciation, facilities, overhead, taxes and insurance.</p>
       <button type="button" class="btn top-reset" data-reset="fb">Start over</button>
     </div>
     <div class="tiles" id="fb-tiles"></div>
@@ -517,7 +547,7 @@ footer .legal { display: grid; gap: 8px; margin-top: 18px; }
   </div>
 </div></footer>
 
-<script src="budget.js?v=4150d7be4b"></script>
+<script src="budget.js?v=2345d4fac0"></script>
 <script>
 "use strict";
 // the page: forms, tables, charts and tabs; the math is in budget.js
@@ -563,7 +593,7 @@ function priceGroup(st, g) {
     el.className = "f"; el.dataset.pk = k;
     el.innerHTML = `<label for="${iid}">${p.label}</label><div class="in"><input type="number" inputmode="decimal" id="${iid}" step="any" min="0"><span class="u">${p.unit}</span></div><div class="src"></div>`;
     const inp = $("input", el);
-    inp.addEventListener("input", () => { const n = parseFloat(inp.value); if (!isNaN(n)) { P[k] = n; refreshAll(); } });
+    inp.addEventListener("input", () => { const n = parseFloat(inp.value); if (!isNaN(n) && n >= 0) { P[k] = n; refreshAll(); } });
     inp.addEventListener("blur", () => afterPress(() => sync(st)));
     wrap.appendChild(el);
   });
@@ -576,7 +606,8 @@ function priceGroup(st, g) {
 function field(st, f) {
   const [id, label, unit, def, o = {}] = f;
   const el = document.createElement("div");
-  if (label === "calc") { el.className = "calc"; el.dataset.calc = id; el._calc = unit; el._simple = !!(def && def.simple); el._html = !!(def && def.html); return el; }
+  if (label === "calc") { el.className = "calc"; el.dataset.calc = id; el._calc = unit; el._simple = !!(def && def.simple); el._html = !!(def && def.html);
+    el._show = def && def.show; el._simpleOnly = !!(def && def.simpleOnly); return el; }
   el.className = "f" + (o.check ? " check" : "") + (o.wide || o.check ? " wide" : "");
   el.dataset.id = id;
   const iid = `${st.key}-${id}`;
@@ -593,7 +624,8 @@ function field(st, f) {
   } else {
     el.innerHTML = `<label for="${iid}">${label}</label><div class="in"><input type="number" inputmode="decimal" id="${iid}" step="${o.step || "any"}"${o.neg ? "" : ' min="0"'}><span class="u">${unit}</span></div><div class="src"></div>`;
     const inp = $("input", el);
-    inp.addEventListener("input", () => { const n = parseFloat(inp.value); if (isNaN(n)) return;
+    inp.addEventListener("input", () => { let n = parseFloat(inp.value); if (isNaN(n) || (n < 0 && !o.neg)) return;   // a negative is set aside; leaving the field shows the number in use
+      if (unit.startsWith("%") && n > 100) n = 100;                                                            // a percent stops at 100
       if (o.ws) return wsChanged(st, id, () => o.ws(n)); st.typed[id] = n; update(st, id); });
     inp.addEventListener("blur", () => afterPress(() => sync(st)));
   }
@@ -623,7 +655,7 @@ function sync(st, skip) {     // push values into the form
       $("button", src).addEventListener("click", () => { delete st.typed[id]; update(st); });
     } else if (o.html) src.innerHTML = txt; else src.textContent = txt;
   });
-  box.querySelectorAll("[data-calc]").forEach(el => { el.hidden = simple && !el._simple; if (el._html) el.innerHTML = el._calc(st.v); else el.textContent = el._calc(st.v); });
+  box.querySelectorAll("[data-calc]").forEach(el => { el.hidden = (simple && !el._simple) || (el._simpleOnly && !simple) || (!!el._show && !el._show(st.v)); if (el._html) el.innerHTML = el._calc(st.v); else el.textContent = el._calc(st.v); });
   box.querySelectorAll("details[data-g]").forEach(d => { d.hidden = ![...$(".fields", d).children].some(c => !c.hidden); });
   box.querySelectorAll("details[data-prices]").forEach(d => { d.hidden = simple; });
   box.querySelectorAll("[data-pk]").forEach(el => {
@@ -669,18 +701,35 @@ function table(res, cover) {
     const q = r.unit === "$" ? usd(r.qty) : `${num(r.qty, r.qty < 10 && r.qty % 1 ? 2 : r.qty < 100 && r.qty % 1 ? 1 : 0)} ${r.unit}`;
     body += `<tr><td>${r.item}${r.note ? `<small>${r.note}</small>` : ""}</td><td class="num hide-sm">${q}</td><td class="num hide-sm">${pr}</td><td class="num">${usd(r.total / per, 2)}</td><td class="num">${usd(r.total)}</td></tr>`;
   });
-  if (sec === "Operating costs") body += sub("Total operating costs", res.op);
-  else body += sub("Total ownership costs", res.own);
-  body += sub("Total costs", res.total) + sub("Net return", res.net, cover === "all" ? "net pick" : "net");
+  if (sec === "Operating costs") body += sub("Total operating costs", res.op);     // no ownership costs: no second "Total costs" line (Retained ownership)
+  else body += sub("Total ownership costs", res.own) + sub("Total costs", res.total);
+  body += sub("Net return", res.net, cover === "all" ? "net pick" : "net");
   return `<table class="tbl">${head}<tbody>${body}</tbody></table>`;
 }
 function tiles(id, list) {
+  stickyResult(id.slice(1, 3), list[0]);
   $(id).innerHTML = list.map(([v, label, kind, , , pair]) => pair
-    ? `<div class="tile pair ${kind || ""}"><span class="pt">${label}</span>${pair.map(([pv, pl]) => `<div><b>${pv}</b><span>${pl}</span></div>`).join("")}</div>`
+    ? `<div class="tile pair ${kind || ""}"><span class="pt">${label}</span>${pair.map(([pv, pl, , pk]) => `<div${pk ? ` class="${pk}"` : ""}><b>${pv}</b><span>${pl}</span></div>`).join("")}</div>`
     : `<div class="tile ${kind || ""}"><b>${v}</b><span>${label}</span></div>`).join("");
 }
+// On a phone, the first tile's number stays on a line at the bottom while the tiles are out of view (G)
+function stickyResult(key, t) {
+  const sec = $(`#p-${key}`); if (!sec || !t) return;
+  let bar = $(".sticky-res", sec);
+  if (!bar) {
+    sec.insertAdjacentHTML("beforeend", `<div class="sticky-res"><span><b></b> <span class="l"></span></span><button type="button" class="btn">Budget</button></div>`);
+    bar = $(".sticky-res", sec);
+    $("button", bar).addEventListener("click", () => { const c = $(`#${key}-tbl`) || $(`#${key}-out`); (c && c.closest(".card") || $(`#${key}-tiles`)).scrollIntoView({ block: "start" }); });
+    new IntersectionObserver(([e]) => { bar.classList.toggle("on", !e.isIntersecting && e.boundingClientRect.top < 0); document.body.classList.toggle("has-sticky", !!document.querySelector(".panel:not([hidden]) .sticky-res.on")); })
+      .observe($(`#${key}-tiles`));
+  }
+  const [val, label, kind, , , pair] = t, first = pair ? pair[0] : null;
+  $("b", bar).textContent = first ? first[0] : val;
+  $(".l", bar).textContent = first ? `${label.charAt(0).toLowerCase()}${label.slice(1)}, ${first[1]}` : label;
+  bar.className = `sticky-res${bar.classList.contains("on") ? " on" : ""} ${(first ? first[3] : kind) || ""}`;
+}
 // exports list a two-number tile as two lines
-const flatTiles = list => list.flatMap(t => t[5] ? t[5].map(([pv, pl, x]) => [pv, `${t[1]}, ${pl}`, t[2], x, t[4]]) : [t]);
+const flatTiles = list => list.flatMap(t => t[5] ? t[5].map(([pv, pl, x, pk]) => [pv, `${t[1]}, ${pl}`, pk || t[2], x, t[4]]) : [t]);
 function sensGrid(rowsDef, colsDef, fn, rowLabel, colLabel, neutral) {
   let h = `<table class="grid-sens"><thead><tr><th>${rowLabel} \\ ${colLabel}</th>${colsDef.map(c => `<th>${c.label}</th>`).join("")}</tr></thead><tbody>`;
   rowsDef.forEach(r => {
@@ -744,15 +793,18 @@ function views(key, v) {
     }
     const d = [-500, -250, 0, 250, 500], c = [-50, -25, 0, 25, 50];
     // break-even purchase price at this month's calf price and at the 10-year average for that month
-    const b = ccBase(), h = calfPriceHist(v.cwt, b.v.month), hp = h ? payoff({ ...v, cp: h.avg }).maxPay : NaN;
+    const b = ccBase(), h = calfPriceHist(v.cwt, b.v.month), hr = h ? payoff({ ...v, cp: h.avg }) : null, hp = hr ? hr.maxPay : NaN, hn = hr ? hr.npv : NaN;
+    const avgT = h ? `at the ${h.y0}–${h.y1} average calf price and ${curYear()} costs` : `at the 10-year average calf price and ${curYear()} costs`;
     const now = Math.abs(v.cp - b.price) < 1e-9 ? `at the ${D.month_label} calf price` : `at your calf price (${usd(v.cp, 2)}/cwt)`;
     // a break-even purchase price of zero or below means no price pays back: "none" (1D1)
     const bep = x => Number.isFinite(x) && x <= 0 ? ["none", null] : [usd(x), x];
     return { r, tiles: [
       [bep(r.maxPay)[0], `Break-even purchase price per ${per}${coverOp(v) ? " (operating costs)" : ""}`, "", bep(r.maxPay)[1], "usd0",
         [[bep(r.maxPay)[0], now, bep(r.maxPay)[1]],
-         [bep(hp)[0], h ? `at the ${h.y0}–${h.y1} average calf price and ${curYear()} costs` : `at the 10-year average calf price and ${curYear()} costs`, bep(hp)[1]]]],
-      [usd(r.npv), `net present value per ${per} at your price`, sign(r.npv), r.npv, "usd0"],
+         [bep(hp)[0], avgT, bep(hp)[1]]]],
+      // net present value the same two ways (review of version 23, E)
+      [usd(r.npv), `Net present value per ${per} at your purchase price`, "", r.npv, "usd0",
+        [[usd(r.npv), now, r.npv, sign(r.npv)], [usd(hn), avgT, hn, Number.isFinite(hn) ? sign(hn) : ""]]],
       [r.payback != null ? `${num(r.payback, 1)} years` : `Not in ${r.L} years`, "to pay back the purchase", r.payback != null ? "" : "neg", r.payback != null ? r.payback : null, "num1"],
       [usd(r.cpBE, 2), "calf price that breaks even ($/cwt)", "", r.cpBE, "usd2"]],
       sens: { title: `Net present value per ${per} at other purchase and calf prices`, rows: d.map(s => ({ val: s, base: s === 0, label: usd(v.price + s) })),
@@ -818,7 +870,7 @@ function drawCC(v) {
   drawCash("cc", v);
   const e = D.ers;
   const rn = D.ers_regions ? D.ers_regions[REGION].name : "Mississippi Portal";
-  $("#cc-ers").innerHTML = `<p class="note" style="color:var(--ink-2)">USDA-ERS estimates for cow-calf farms in its ${rn} region${STATE.code === "ms" && REGION === "mississippi_portal" ? " (in Mississippi, 58 of 82 counties, all but the southeast)" : ""}, ${e.year}, per bred cow: operating costs ${usd(e.total_operating_costs)}, value of production ${usd(e.total_gross_value_of_production)}. Its total cost of ${usd(e.total_costs_listed)} also charges for the owner's unpaid labor and land, which this budget leaves out unless you add them. Your budget: operating costs ${usd(r.op / r.N)} and income ${usd(r.income / r.N)} per cow.</p>`;
+  $("#cc-ers").innerHTML = `<p class="note" style="color:var(--ink-2)">USDA-ERS estimates for cow-calf farms in its ${rn} region${STATE.code === "ms" && REGION === "mississippi_portal" ? " (in Mississippi, 58 of 82 counties, all but the southeast)" : ""}, ${e.year}, per bred cow: operating costs ${usd(e.total_operating_costs)}, value of production ${usd(e.total_gross_value_of_production)}. Its total cost of ${usd(e.total_costs_listed)} also charges ${usd(e.capital_recovery_of_machinery_and_equipment)} for machinery and equipment (this budget: ${usd(v.fac)} for pens, chute, fence, water and trailer) and charges for the owner's unpaid labor and land, which this budget leaves out unless you add them. Your budget: operating costs ${usd(r.op / r.N)} and income ${usd(r.income / r.N)} per cow.</p>`;
 }
 function drawST(v) {
   const { r, tiles: t, sens } = views("st", v);
@@ -981,6 +1033,7 @@ function inputRow(st, f) {
   const src = typed ? "Your number" : o.src ? String(o.src(st.v)).replace(/<[^>]*>/g, "") : "";      // no link code in a file
   return { label, value, unit: u, src };
 }
+const valText = it => String(typeof it.value === "number" ? (it.unit.startsWith("$") ? `${usd(it.value, Math.abs(it.value) < 100 && it.value % 1 ? 2 : 0)}${it.unit.slice(1)}` : `${it.value.toLocaleString("en-US", { maximumFractionDigits: 2 })}${it.unit.startsWith("%") ? "" : " "}${it.unit}`) : it.value).trim();
 function reportModel(st) {
   const key = st.key, v = st.v, vw = views(key, v), r = vw.r;
   const inputs = st.spec.filter(g => g.f).map(g => ({ group: g.g,
@@ -1001,7 +1054,7 @@ function reportModel(st) {
     asof: `${D.month_label} average prices; page built ${fdate(D.generated)}.`,
     sources: `${STATE.name} auction prices: USDA-AMS and the ${STATE.agency}. Pasture and hay: MSU Extension 2027 forage budgets. ` +
       "Other prices: USDA-AMS, USDA-NASS, USDA-ERS, BLS, the Federal Reserve Bank of Dallas and CME Group, as listed with each price.",
-    disclaimer: "Prepared with the Mississippi State University Extension beef cattle budget tool (beta), using the producer's own numbers and public market prices. " +
+    disclaimer: "Prepared with the Mississippi State University Extension beef cattle budget tool, using the producer's own numbers and public market prices. " +
       "It is an estimate for planning, not a forecast of what any farm will earn. Starting numbers without a public source are starting guesses; replace them with your own." };
 }
 // The forage worksheets a budget builds its cost per acre from, for the exports (1C2)
@@ -1150,10 +1203,10 @@ async function buildXlsx(m) {
     wf.columns = [{ width: 36 }, { width: 12 }, { width: 8 }, { width: 13 }, { width: 12 }, { width: 13 }, { width: 26 }];
     m.forage.forEach(a => {
       wf.addRow([`${a.name} (MSU table ${a.table}), per acre`]).font = { bold: true, size: 12, color: { argb: MAROON } };
-      wf.addRow([a.printed ? "MSU printed rates, establishment not charged" : "Changed from MSU's printed budget"]).font = { italic: true, size: 9 };
+      wf.addRow([wsStateText(a.sys)]).font = { italic: true, size: 9 };
       wf.addRow(["Item", "Quantity", "Unit", "MSU printed", "Price", "Per acre", "Price basis"]).font = { bold: true };
       const first = wf.rowCount + 1;
-      a.rows.filter(r => r.qty || r.cost).forEach(r => { const x = wf.addRow([r.item + (r.part === "est" ? " (establishment)" : r.part === "fixed" ? " (machinery)" : ""), r.qty, r.unit, r.printed, r.price, null, r.how]);
+      a.rows.filter(r => r.qty || r.cost).forEach(r => { const x = wf.addRow([r.item + (r.part === "est" ? " (establishment)" : r.part === "fixed" ? " (machinery)" : ""), r.qty, r.unit, r.cwt != null ? `${r.cwt} cwt` : r.printed, r.price, null, r.how]);
         x.getCell(6).value = { formula: `B${x.number}*E${x.number}`, result: r.cost }; x.getCell(5).numFmt = USD2; x.getCell(6).numFmt = USD2; x.getCell(2).numFmt = QTY; x.getCell(4).numFmt = QTY; });
       const t = wf.addRow(["Total per acre", null, null, null, null, { formula: `SUM(F${first}:F${wf.rowCount})`, result: a.d + a.f }]);
       t.font = { bold: true }; t.getCell(6).numFmt = USD2;
@@ -1233,7 +1286,7 @@ async function buildDocx(m) {
     arows.push(new d.TableRow({ children: [new d.TableCell({ columnSpan: 2, width: { size: W, type: d.WidthType.DXA }, shading: { type: d.ShadingType.CLEAR, color: "auto", fill: "FAF5F6" },
       margins: { top: 50, bottom: 30, left: 90, right: 90 }, children: [para([run(g.group, { bold: true, color: "5D1725", size: 19 })])] })] }));
     g.items.forEach(it => {
-      const val = typeof it.value === "number" ? (it.unit.startsWith("$") ? `${usd(it.value, Math.abs(it.value) < 100 && it.value % 1 ? 2 : 0)}${it.unit.slice(1)}` : `${it.value.toLocaleString("en-US", { maximumFractionDigits: 2 })}${it.unit.startsWith("%") ? "" : " "}${it.unit}`) : it.value;
+      const val = valText(it);
       arows.push(new d.TableRow({ cantSplit: true, children: [cell([run(it.label, { size: 19 })].concat(it.src ? [small(it.src, { size: 15, color: "777777" })] : []), aw[0]),
         cell(String(val).trim(), aw[1], { right: true, size: 19 })] }));
     });
@@ -1277,7 +1330,7 @@ async function buildDocx(m) {
 
   m.forage.forEach(a => {      // the Forage costs worksheets this budget uses (1C2)
     kids.push(h(`${a.name} cost per acre`));
-    kids.push(para([run(`MSU table ${a.table}. ${a.printed ? "MSU printed rates, establishment not charged." : "Changed from MSU's printed budget."}`, { size: 18, color: "666666" })]));
+    kids.push(para([run(`MSU table ${a.table}. ${wsStateText(a.sys)}.`, { size: 18, color: "666666" })]));
     const fw = [4080, 1800, 1920, 2280];
     const on = a.rows.filter(r => r.on && r.qty);
     kids.push(table(fw, [headRow(["Item", "Quantity", "Price", "Per acre"], fw, i => i > 0)].concat(on.map(r => new d.TableRow({ cantSplit: true,
@@ -1526,7 +1579,6 @@ const pct = r => `${r >= 1 ? "+" : "−"}${num(Math.abs(r - 1) * 100, 1)}%`;
 // One worksheet per practice: switch lines on or off and change quantities; MSU's
 // printed quantity stays beside each line. Shared by every budget (B2-B5).
 const WS_START = { overseed: "; phosphate and potash are what the ryegrass adds over permanent pasture" };
-const WS_PENDING = { overseed: "Phosphate, potash and mowing adjustments are pending forage specialist review." };
 function drawForageTab() {
   const box = $("#fc-sheets"); if (!box) return;
   box.innerHTML = FORAGE_SYS.map(sys => {
@@ -1535,21 +1587,20 @@ function drawForageTab() {
       const id = `ws-${sys}-${r.i}`, q = r.i in w.qty ? w.qty[r.i] : r.start;
       return `<tr class="${r.on ? "" : "off"}">${r.part === "est" ? "<td class=\"on\"></td>" : `<td class="on"><input type="checkbox" id="${id}" data-ws="${sys}" data-i="${r.i}"${r.on ? " checked" : ""}></td>`}
         <td>${r.part === "est" ? r.item : `<label for="${id}">${r.item}</label>`}<small>${r.how}${r.note ? `; ${r.note}` : ""}</small></td>
-        <td class="num"><input class="wsq" type="number" inputmode="decimal" step="any" min="0" value="${roundFor(q, .01)}" data-wsq="${sys}" data-i="${r.i}" aria-label="${r.item}, your quantity (${r.unit})"> ${r.unit}<small class="show-sm">MSU: ${num(r.printed, 2)}</small></td>
-        <td class="num hide-sm">${num(r.printed, 2)}</td><td class="num hide-sm">${usd(r.price, 2)}</td><td class="num">${usd(r.cost, 2)}</td></tr>`;
+        <td class="num"><input class="wsq" type="number" inputmode="decimal" step="any" min="0" value="${roundFor(q, .01)}" data-wsq="${sys}" data-i="${r.i}" aria-label="${r.item}, your quantity (${r.unit})"> ${r.unit}<small class="show-sm">MSU: ${printedText(r)}</small></td>
+        <td class="num hide-sm">${printedText(r)}</td><td class="num hide-sm">${usd(r.price, 2)}</td><td class="num">${usd(r.cost, 2)}</td></tr>`;
     };
     const tot = (label, val, cls = "tot") => `<tr class="${cls}"><td></td><td>${label}</td><td></td><td class="hide-sm"></td><td class="hide-sm"></td><td class="num">${usd(val, 2)}</td></tr>`;
     const sec = label => `<tr class="sec"><td colspan="6">${label}</td></tr>`;
     return `<div class="card" data-sheet="${sys}"><h3>${FNAME[sys]} <small style="font-weight:400;color:var(--muted)">MSU table ${a.table}</small></h3>
-      <p class="ws-state${printed ? "" : " changed"}">${printed ? `MSU printed rates, establishment not charged${WS_START[sys] || ""}` : "Changed from MSU's printed budget"}</p>
-      ${WS_PENDING[sys] ? `<p class="note" style="margin:0 0 10px">${WS_PENDING[sys]}</p>` : ""}
-      <label class="ws-est"><input type="checkbox" data-est="${sys}"${w.est ? " checked" : ""}> Charge establishment (new or renovated stand)</label>
+      <p class="ws-state${printed ? "" : " changed"}">${wsStateText(sys)}${printed ? WS_START[sys] || "" : ""}</p>
+      ${wsHasEst(sys) ? `<label class="ws-est"><input type="checkbox" data-est="${sys}"${w.est ? " checked" : ""}> Charge establishment (new or renovated stand)</label>` : ""}
       <div class="scroll"><table class="tbl ws-tbl"><thead><tr><th><span class="sr-only">Used</span></th><th>Item</th><th>Your quantity</th><th class="hide-sm">MSU printed</th><th class="hide-sm">Price</th><th>Per acre</th></tr></thead><tbody>
         ${sec("Operating")}${a.direct.map(row).join("")}${tot("Operating cost per acre", a.d)}
         ${sec("Machinery and establishment")}${a.fixed.map(row).join("")}${tot("Machinery and establishment per acre", a.f)}
         ${tot("Total per acre", a.d + a.f, "net")}</tbody></table></div>
       <div class="btns" style="margin-top:10px"><button type="button" class="btn" data-wsreset="${sys}"${printed ? " disabled" : ""}>Use MSU's printed budget again</button></div></div>`;
-  }).join("") + `<p class="note">Nitrogen is priced as urea and phosphate as DAP, per hundredweight of product. MSU's printed budget prices nitrogen as an average of urea, ammonium nitrate and ammonium sulfate. Chemicals and machinery are carried forward from 2025 by BLS price indexes; other items stay at MSU's 2025 prices. Interest is left out here; each budget charges interest on its operating costs once.</p>`;
+  }).join("") + `<p class="note">Nitrogen is in pounds of actual N, priced as urea (46% N); phosphate is priced as DAP and potash per hundredweight of product. MSU's printed budget lists nitrogen as hundredweight of a blend, priced as an average of urea, ammonium nitrate and ammonium sulfate, at about 37% N (80 lb of N on 2.14 cwt in table 11). Chemicals and machinery are carried forward from 2025 by BLS price indexes; other items stay at MSU's 2025 prices. Interest is left out here; each budget charges interest on its operating costs once.</p>`;
 }
 function forageEdited() { saveState(); refreshAll(); }
 function wireForageTab() {
@@ -1606,7 +1657,8 @@ function refreshAll() { [CCF, STF, ROF, FBF, PPF].forEach(f => update(f)); drawP
 // What the user types is kept in this browser (localStorage) so a refresh keeps it; Start over clears a
 // budget's own inputs. Storage can be off (private windows): the page works without it.
 // Saved inputs carry a version (v) and the data month; version 18's carry neither (read as version 1).
-const STORE = "msu-beef-budgets-v1", STORE_VERSION = 2;
+// Version 3: worksheet nitrogen is lb of N, not cwt of urea (older saves are converted at 46 lb a cwt).
+const STORE = "msu-beef-budgets-v1", STORE_VERSION = 3;
 function saveState() {
   if (!CCF || !STF || !ROF || !FBF || !PPF) return;          // still starting up
   try {
@@ -1635,10 +1687,10 @@ function validTyped(spec, typed) {
   });
   return out;
 }
-function validSheet(sys, w) {
-  const n = wsLines(sys).length, idx = k => /^\d+$/.test(k) && Number(k) < n, out = wsFresh();
+function validSheet(sys, w, ver = STORE_VERSION) {
+  const L = wsLines(sys), n = L.length, idx = k => /^\d+$/.test(k) && Number(k) < n, out = wsFresh();
   ["off", "on"].forEach(part => Object.keys((w && w[part]) || {}).forEach(k => { if (idx(k)) out[part][k] = 1; }));
-  Object.entries((w && w.qty) || {}).forEach(([k, x]) => { if (idx(k) && typeof x === "number" && Number.isFinite(x) && x >= 0) out.qty[k] = x; });
+  Object.entries((w && w.qty) || {}).forEach(([k, x]) => { if (idx(k) && typeof x === "number" && Number.isFinite(x) && x >= 0) out.qty[k] = ver < 3 && L[k].cwt != null ? x * 46 : x; });
   out.est = w && w.est === 1 ? 1 : 0;
   return out;
 }
@@ -1649,7 +1701,7 @@ function restoreSaved(saved) {
   if ((saved.v || 1) > STORE_VERSION) throw new Error("saved by a newer page");
   const newMonth = !!saved.month && saved.month !== D.month;
   if (!newMonth) Object.entries(saved.prices || {}).forEach(([k, x]) => { if (D.prices[k] && typeof x === "number" && Number.isFinite(x)) P[k] = x; });
-  Object.entries(saved.forage || {}).forEach(([k, w]) => { if (FORAGE_SYS.includes(k) && w) WS[k] = validSheet(k, w); });
+  Object.entries(saved.forage || {}).forEach(([k, w]) => { if (FORAGE_SYS.includes(k) && w) WS[k] = validSheet(k, w, saved.v || 1); });
   ["for", "by", "notes"].forEach(k => { if (typeof (saved.report || {})[k] === "string") REPORT[k] = saved.report[k]; });
   const forms = {};
   Object.entries(SPECS).forEach(([key, spec]) => {
@@ -1763,7 +1815,7 @@ const TABS = ["cc", "pp", "st", "ro", "fb", "fc", "ab"];
 const ADDR = { cc: "cowcalf", pp: "payoff", st: "stocker", ro: "retained", fb: "freezer", fc: "forage", ab: "about" };
 const tabFor = h => { h = String(h || "").toLowerCase(); if (h === "pr") return "ab"; const k = Object.keys(ADDR).find(x => ADDR[x] === h); return k || h; };
 function showTab(t) {
-  document.querySelectorAll(".tab").forEach(b => b.setAttribute("aria-selected", String(b.dataset.tab === t)));
+  document.querySelectorAll(".tab").forEach(b => { const on = b.dataset.tab === t; b.setAttribute("aria-selected", String(on)); b.tabIndex = on ? 0 : -1; });
   TABS.forEach(k => { $(`#p-${k}`).hidden = k !== t; });
   // center the tab in the tab bar by scrolling the bar alone: scrollIntoView also pans the whole page sideways in
   // iPhone Safari when the bar can't scroll far enough (the last tab), leaving a blank strip (11/2026)
@@ -1816,9 +1868,11 @@ fetch("data/prices.json").then(r => { if (!r.ok) throw new Error(r.status); retu
   $("#region-sel").addEventListener("change", e => { REGION_CHOSEN = true; useRegion(e.target.value); refreshAll(); stateText(); saveState(); });
   drawPrices(); drawForageTab(); wireForageTab(); stateText();
   document.querySelectorAll(".tab").forEach(b => b.addEventListener("click", () => showTab(b.dataset.tab)));
+  wireKeys();
   ["cc", "st", "ro", "fb", "pp"].forEach(renderExports);
   document.querySelectorAll("[data-rep]").forEach(inp => { inp.value = REPORT[inp.dataset.rep] || ""; inp.addEventListener("input", saveState); });
-  document.querySelectorAll("[data-reset]").forEach(b => b.addEventListener("click", () => { const f = { cc: CCF, st: STF, ro: ROF, fb: FBF, pp: PPF }[b.dataset.reset]; f.reset(); update(f); }));
+  document.querySelectorAll("[data-reset]").forEach(b => b.addEventListener("click", () => { const f = { cc: CCF, st: STF, ro: ROF, fb: FBF, pp: PPF }[b.dataset.reset]; f.reset();
+    if (f === CCF || f === STF) { wsQuestionsReset(); refreshAll(); } else update(f); }));   // the shared pasture answers go back too
   document.addEventListener("click", e => {             // "Build my pasture cost" (2B2)
     if (e.target.closest("[data-build-pasture]")) { CCF.typed.fcP = "build"; update(CCF); const q = $("#cc-wsN"); if (q) q.focus(); }
   });
@@ -1856,6 +1910,40 @@ fetch("data/prices.json").then(r => { if (!r.ok) throw new Error(r.status); retu
   addEventListener("resize", later); later();
 })();
 
+// Keyboard (review of version 23, G): arrow keys, Home and End move along the tabs and along each switch;
+// tabs name their panels; one stop per tab bar and per switch. A cue shows when tabs are off to the side.
+function wireKeys() {
+  const list = $('[role="tablist"]'), tabs = [...list.querySelectorAll(".tab")];
+  tabs.forEach(b => { const k = b.dataset.tab, p = $(`#p-${k}`); b.id = `tab-${k}`; b.setAttribute("aria-controls", `p-${k}`);
+    if (p) { p.setAttribute("role", "tabpanel"); p.setAttribute("aria-labelledby", b.id); } });
+  const step = (items, cur, key) => { const i = items.indexOf(cur), n = items.length;
+    return key === "ArrowRight" || key === "ArrowDown" ? items[(i + 1) % n] : key === "ArrowLeft" || key === "ArrowUp" ? items[(i - 1 + n) % n] : key === "Home" ? items[0] : key === "End" ? items[n - 1] : null; };
+  list.addEventListener("keydown", e => { const to = step(tabs, e.target.closest(".tab"), e.key); if (!to) return; e.preventDefault(); to.click(); to.focus(); });
+  document.addEventListener("keydown", e => {
+    const b = e.target.closest && e.target.closest('[role="radiogroup"] [role="radio"]'); if (!b) return;
+    const items = [...b.closest('[role="radiogroup"]').querySelectorAll('[role="radio"]')].filter(x => !x.hidden && !x.disabled);
+    const to = step(items, b, e.key); if (!to) return; e.preventDefault(); to.click(); to.focus();
+  });
+  const rove = () => document.querySelectorAll('[role="radiogroup"]').forEach(g => { const r = [...g.querySelectorAll('[role="radio"]')];
+    const on = r.find(x => x.getAttribute("aria-checked") === "true") || r[0]; r.forEach(x => { x.tabIndex = x === on ? 0 : -1; }); });
+  new MutationObserver(rove).observe(document.body, { subtree: true, attributes: true, attributeFilter: ["aria-checked"] }); rove();
+  const nav = $(".tabs"); nav.insertAdjacentHTML("beforeend", '<span class="cue l" aria-hidden="true">‹</span><span class="cue r" aria-hidden="true">›</span>');
+  const cue = () => { nav.classList.toggle("more-r", list.scrollLeft + list.clientWidth < list.scrollWidth - 2); nav.classList.toggle("more-l", list.scrollLeft > 2); };
+  list.addEventListener("scroll", cue, { passive: true }); addEventListener("resize", cue); cue();
+  // the notes under each budget's switches fold away on a phone (open on wider screens)
+  const wide = matchMedia("(min-width: 561px)");
+  document.querySelectorAll(".modebar").forEach(mb => { const ns = [...mb.querySelectorAll(":scope > p.note")]; if (!ns.length) return;
+    const d = document.createElement("details"); d.className = "modehelp"; d.innerHTML = "<summary>What these choices mean</summary>";
+    mb.insertBefore(d, ns[0]); ns.forEach(n => d.appendChild(n)); d.open = wide.matches; });
+  wide.addEventListener("change", () => document.querySelectorAll("details.modehelp").forEach(d => { if (wide.matches) d.open = true; }));
+}
+// Print (G): the inputs as a short list of assumptions above the results, as in the Word report
+addEventListener("beforeprint", () => {
+  const t = TABS.find(k => !$(`#p-${k}`).hidden), f = { cc: CCF, st: STF, ro: ROF, fb: FBF, pp: PPF }[t]; if (!f) return;
+  const m = reportModel(f), sec = $(`#p-${t}`); let box = $(".assume", sec);
+  if (!box) { box = document.createElement("div"); box.className = "assume print-only"; $(".cols", sec).before(box); }
+  box.innerHTML = "<h3>Assumptions</h3>" + m.inputs.map(g => `<h4>${g.group}</h4>` + g.items.map(it => `<p>${it.label}: ${valText(it)}</p>`).join("")).join("");
+});
 // Visit counts (GoatCounter): which tabs people open and how often they share, as plain events with no
 // identity attached. Named "<tool>: <tab label>"; nothing is sent when the counter didn't load.
 (() => {
