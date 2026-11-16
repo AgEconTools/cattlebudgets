@@ -279,6 +279,9 @@ details.modehelp .note { margin: 6px 0 0; }
   .segwrap { display: flex; align-items: center; gap: 8px; }
   .segwrap .seglab { flex: 0 0 auto; max-width: 5.5em; line-height: 1.2; }
   .seg button { padding: 6px 14px; } .sub { font-size: 14px; line-height: 1.4; }   /* Freezer beef has three switches */
+  .tile.pair { grid-column: 1 / -1; gap: 0 12px; }   /* Purchase payoff: a two-number tile takes the row, its numbers side by side */
+  .tile { padding: 12px 14px; }
+  #p-pp .modebar .top-reset { order: 3; } #p-pp details.modehelp { order: 2; flex: 1 1 0; min-width: 12em; }   /* its three-way switch leaves no room for Start over */
 }
 .tabs { --cue: var(--bg); }
 .tabs .cue { position: absolute; top: 0; bottom: 1px; width: 44px; display: none; align-items: center; pointer-events: none; font-size: 22px; font-weight: 700; color: var(--ink-2); }
@@ -290,9 +293,9 @@ details.modehelp .note { margin: 6px 0 0; }
   .tabs, .inputs, .btns, footer .noprint { display: none !important; }
   .place, #ms-note, .tools-line, .tools-strip, .modebar, .viewseg, .top-reset, .exports, .readout, .sticky-res, details.hist-tbl, .tabs .cue { display: none !important; }
   .print-only { display: block !important; }
-  .assume { columns: 2; column-gap: 24px; font-size: 11px; margin: 10px 0; }
-  .assume h4 { margin: 6px 0 2px; font-size: 11.5px; break-after: avoid; }
-  .assume p { margin: 0; break-inside: avoid; }
+  .print-assume { columns: 2; column-gap: 24px; font-size: 11px; margin: 10px 0; }
+  .print-assume h4 { margin: 6px 0 2px; font-size: 11.5px; break-after: avoid; }
+  .print-assume p { margin: 0; break-inside: avoid; }
   .cols { grid-template-columns: 1fr; }
   .mast { background: none; color: #000; border-bottom: 2px solid #000; }
   body { background: #fff; }
@@ -560,7 +563,7 @@ details.modehelp .note { margin: 6px 0 0; }
   </div>
 </div></footer>
 
-<script src="budget.js?v=22fa3ab9b2"></script>
+<script src="budget.js?v=b36632f8bd"></script>
 <script>
 "use strict";
 // the page: forms, tables, charts and tabs; the math is in budget.js
@@ -1594,6 +1597,9 @@ const pct = r => `${r >= 1 ? "+" : "−"}${num(Math.abs(r - 1) * 100, 1)}%`;
 // One worksheet per practice: switch lines on or off and change quantities; MSU's
 // printed quantity stays beside each line. Shared by every budget (B2-B5).
 const WS_START = { overseed: "; phosphate and potash are what the ryegrass adds over permanent pasture" };
+// MSU prints no pounds of N for the ryegrass tables (28, 30): say how the page got them (second pass, 1)
+const WS_NNOTE = { ryegrass: "MSU prints 4.00 cwt; 150 lb is that amount at the same blend as tables 11 and 14.",
+                   overseed: "MSU prints 2.10 cwt; 80 lb is that amount at the same blend as tables 11 and 14 (78.5 lb, rounded)." };
 function drawForageTab() {
   const box = $("#fc-sheets"); if (!box) return;
   box.innerHTML = FORAGE_SYS.map(sys => {
@@ -1609,6 +1615,7 @@ function drawForageTab() {
     const sec = label => `<tr class="sec"><td colspan="6">${label}</td></tr>`;
     return `<div class="card" data-sheet="${sys}"><h3>${FNAME[sys]} <small style="font-weight:400;color:var(--muted)">MSU table ${a.table}</small></h3>
       <p class="ws-state${printed ? "" : " changed"}">${wsStateText(sys)}${printed ? WS_START[sys] || "" : ""}</p>
+      ${WS_NNOTE[sys] ? `<p class="note" style="margin:0 0 10px">${WS_NNOTE[sys]}</p>` : ""}
       ${wsHasEst(sys) ? `<label class="ws-est"><input type="checkbox" data-est="${sys}"${w.est ? " checked" : ""}> Charge establishment (new or renovated stand)</label>` : ""}
       <div class="scroll"><table class="tbl ws-tbl"><thead><tr><th><span class="sr-only">Used</span></th><th>Item</th><th>Your quantity</th><th class="hide-sm">MSU printed</th><th class="hide-sm">Price</th><th>Per acre</th></tr></thead><tbody>
         ${sec("Operating")}${a.direct.map(row).join("")}${tot("Operating cost per acre", a.d)}
@@ -1642,7 +1649,7 @@ function about() {
   <ul>
     <li><b>Cattle prices:</b> ${D.month_label} ${STATE.name} auction averages (USDA-AMS and the ${STATE.agency}) by 100-lb weight class; a weight in between gets a price in between. For a sale in another month, the price moves by the usual 5-year seasonal pattern, which assumes the market as a whole doesn't change.</li>
     <li><b>Fed cattle:</b> CME live cattle futures for the contract in or after the sale month, plus that month's average basis (5-area negotiated live steer price minus nearby futures). Heifers use the same price.</li>
-    <li><b>Pasture and hay:</b> MSU Extension's 2027 forage budgets as printed, at the prices below; each line can be changed on the Forage costs tab.</li>
+    <li><b>Pasture and hay:</b> MSU Extension's 2027 forage budgets at the prices below, with two changes: nitrogen is in pounds of N (MSU prints hundredweight of a blend), and overseeded ryegrass's phosphate and potash are what it adds over permanent pasture. Each line can be changed on the Forage costs tab.</li>
     <li><b>Feed, fertilizer, fuel, labor, rent, interest, vet and overhead:</b> the table below.</li>
     <li><b>Cost region (USDA-ERS):</b> vet, overhead, the pasture rental value and the cost comparison use the ${D.ers_regions[REGION].name} region${REGION === STATE.region ? `, which holds most of ${STATE.name}'s beef cows (2022 Census of Agriculture)` : ` (chosen at the top; ${STATE.name} starts on ${D.ers_regions[STATE.region].name}, which holds most of its beef cows)`}.</li>
     <li><b>Freezer beef:</b> grass-fed prices start from the USDA-AMS National Grass Fed Beef Report (quarterly, direct to consumer, processing not included); grain-fed prices are starting guesses.</li>
@@ -1959,8 +1966,8 @@ function wireKeys() {
 // Print (G): the inputs as a short list of assumptions above the results, as in the Word report
 addEventListener("beforeprint", () => {
   const t = TABS.find(k => !$(`#p-${k}`).hidden), f = { cc: CCF, st: STF, ro: ROF, fb: FBF, pp: PPF }[t]; if (!f) return;
-  const m = reportModel(f), sec = $(`#p-${t}`); let box = $(".assume", sec);
-  if (!box) { box = document.createElement("div"); box.className = "assume print-only"; $(".cols", sec).before(box); }
+  const m = reportModel(f), sec = $(`#p-${t}`); let box = $(".print-assume", sec);   // its own class: Simple's "What Simple fills in" panel is .assume
+  if (!box) { box = document.createElement("div"); box.className = "print-assume print-only"; $(".cols", sec).before(box); }
   box.innerHTML = "<h3>Assumptions</h3>" + m.inputs.map(g => `<h4>${g.group}</h4>` + g.items.map(it => `<p>${it.label}: ${valText(it)}</p>`).join("")).join("");
 });
 // Visit counts (GoatCounter): which tabs people open and how often they share, as plain events with no
