@@ -132,6 +132,7 @@ function spreadRule() { wsSet(SPREAD_RE, !(wsN() === 0 && !wsHas(PK_RE))); }
 // ---------- input forms ----------
 // A field: [id, label, unit, default, opts]. default may be a function of the
 // current values (v) so it follows the market until the user types a number.
+const inSimple = (o, v) => !!o.simple && (!o.simpleIf || o.simpleIf(v));
 const HAY_LABEL = "Hay price (market report; add delivery)";
 // The cost-per-acre choice for one forage in a budget, and the user's own number.
 function forageFields(role, name, sysOf, show = () => true, ers = false) {
@@ -395,23 +396,23 @@ const isGrain = v => v.sys === "grain";
 const FB = [
   { g: "Cattle", open: true, f: [
     ["cover", "Costs the cattle must cover", "", "all", { show: () => false, select: [["all", "All costs, including fixed"], ["op", "Operating costs only"]] }],   // set by the switch above the results
-    ["head", "Head finished", "head", 4, { step: 1 }],
+    ["head", "Head finished", "head", 4, { simple: true, step: 1 }],
     ["sys", "How they're finished", "", "grain", { wide: true, show: () => false, select: [["grain", "Grain-fed"], ["grass", "Grass-fed"]] }],   // set by the switch above the tiles
-    ["cls", "Steers or heifers", "", "Steers", { select: [["Steers", "Steers"], ["Heifers", "Heifers"]] }],
+    ["cls", "Steers or heifers", "", "Steers", { simple: true, select: [["Steers", "Steers"], ["Heifers", "Heifers"]] }],
     ["smonth", "Month finishing starts", "", 10, { select: MONTH_OPTS }],   // November: a 650-lb calf finishes on grain around May
     ["season", "Adjust the calf price for the usual seasonal pattern", "", 1, { check: true }],
-    ["w0", "Starting weight", "lb", v => isGrain(v) ? 650 : 550, { step: 10 }],
-    ["p0", "Calf value at the start", "$/cwt", v => slide(v.cls, v.w0) * (v.season ? seasonAdj(v.cls, v.w0, v.smonth) : 1), { step: 1, src: v => calfSrc(v.cls, v.w0, v, v.smonth) }],
+    ["w0", "Starting weight", "lb", v => isGrain(v) ? 650 : 550, { simple: true, step: 10 }],
+    ["p0", "Calf value at the start", "$/cwt", v => slide(v.cls, v.w0) * (v.season ? seasonAdj(v.cls, v.w0, v.smonth) : 1), { simple: true, step: 1, src: v => calfSrc(v.cls, v.w0, v, v.smonth) }],
     ["comm", "Commission if sold as calves", "% of sales", 3, { step: .25 }],
     ["haul", "Hauling to the sale", "$/head", 6, { step: 1 }],
     ["_calf", "calc", v => `Selling at the start would net ${usd(fbCalfNet(v), 2)} a head after commission, hauling and the $1 checkoff. The budget charges each calf this much.`],
-    ["w1", "Finished live weight", "lb", v => isGrain(v) ? 1250 : 1150, { step: 10 }],
+    ["w1", "Finished live weight", "lb", v => isGrain(v) ? 1250 : 1150, { simple: true, step: 10 }],
     ["adg", "Average daily gain", "lb/day", v => isGrain(v) ? 2.6 : 1.6, { step: .1 }],
     ["death", "Death loss", "%", 1, { step: .5 }],
-    ["_days", "calc", v => { const d = fbDays(v); return `Finishes in ${num(d)} days, in ${MONTHS_LONG[(v.smonth + Math.round(d / 30.4)) % 12]}.`; }],
+    ["_days", "calc", v => { const d = fbDays(v); return `Finishes in ${num(d)} days, in ${MONTHS_LONG[(v.smonth + Math.round(d / 30.4)) % 12]}.`; }, { simple: true }],
   ]},
   { g: "Feed and pasture", open: true, f: [
-    ["conc", "Grain mix fed", "% of body wt", v => isGrain(v) ? 1.8 : 0, { step: .1, src: () => "Average a day over the feeding period; full feed is about 2 to 2.5%" }],
+    ["conc", "Grain mix fed", "% of body wt", v => isGrain(v) ? 1.8 : 0, { simple: true, simpleIf: isGrain, step: .1, src: () => "Average a day over the feeding period; full feed is about 2 to 2.5%" }],
     ["mcorn", "Mix: shelled corn", "%", 60, { step: 5, show: v => v.conc > 0 }],
     ["msoy", "Mix: soybean hull pellets", "%", 25, { step: 5, show: v => v.conc > 0 }],
     ["mcgf", "Mix: corn gluten feed", "%", 10, { step: 5, show: v => v.conc > 0 }],
@@ -419,28 +420,28 @@ const FB = [
     ["handling", "Delivery, mixing and handling", "$/ton", 40, { step: 5, show: v => v.conc > 0 }],
     ["_mix", "calc", v => { if (!(v.conc > 0)) return "No grain fed."; const m = mix(v); return `The mix costs ${usd(m.price + v.handling, 2)}/ton delivered (${m.parts}); about ${num((v.w0 + v.w1) / 2 * v.conc / 100, 1)} lb a head a day.${Math.abs(m.sum - 100) > .01 ? ` The parts add to ${num(m.sum)}%, so they're scaled to 100%.` : ""}`; }],
     ["hayday", "Hay per head per day", "lb", v => isGrain(v) ? 6 : 12, { step: 1, src: () => "As fed, including waste" }],
-    ["hayp", HAY_LABEL, "$/ton", () => P.hay_market, { step: 1, src: () => priceSrc("hay_market") }],
-    ["pacres", "Permanent pasture per head", "acres", v => isGrain(v) ? 0.5 : 1.5, { step: .1, src: () => "Charged for the days on feed" }],
+    ["hayp", HAY_LABEL, "$/ton", () => P.hay_market, { simple: true, step: 1, src: () => priceSrc("hay_market") }],
+    ["pacres", "Permanent pasture per head", "acres", v => isGrain(v) ? 0.5 : 1.5, { simple: true, step: .1, src: () => "Charged for the days on feed" }],
     ...forageFields("P", "Permanent pasture", () => "pasture", v => v.pacres > 0),
-    ["wacres", "Winter annual per head", "acres", v => isGrain(v) ? 0 : 1, { step: .1, src: () => "Charged for one season" }],
-    ["wsys", "Winter annual", "", "overseed", { wide: true, select: () => [["overseed", SYSTEMS.overseed], ["ryegrass", SYSTEMS.ryegrass]], show: v => v.wacres > 0 }],
+    ["wacres", "Winter annual per head", "acres", v => isGrain(v) ? 0 : 1, { simple: true, step: .1, src: () => "Charged for one season" }],
+    ["wsys", "Winter annual", "", "overseed", { simple: true, wide: true, select: () => [["overseed", SYSTEMS.overseed], ["ryegrass", SYSTEMS.ryegrass]], show: v => v.wacres > 0 }],
     ...forageFields("W", "Winter annual", v => v.wsys, v => v.wacres > 0),
     ["minoz", "Mineral per head per day", "oz", 3, { step: .5 }],
     ["minp", "Mineral price", "$/lb", 0.56, { step: .01, src: () => "Starting guess; no public price series" }],
   ]},
   { g: "Processing and sale", open: true, f: [
-    ["pay", "Who pays the processor", "", "buyer", { wide: true, select: [["buyer", "Buyers pay the processor"], ["you", "I pay and include it in my price"]] }],
+    ["pay", "Who pays the processor", "", "buyer", { simple: true, wide: true, select: [["buyer", "Buyers pay the processor"], ["you", "I pay and include it in my price"]] }],
     ["dress", "Dressing percentage", "% of live wt", v => isGrain(v) ? 61 : 57, { step: .5, src: () => "Hanging (carcass) weight as a share of live weight" }],
-    ["kill", "Harvest (kill) fee", "$/head", 100, { step: 5, src: () => "A starting guess" }],
-    ["cw", "Cut, wrap and freeze", "$/lb hanging", 1.1, { step: .05, src: () => "A starting guess" }],
+    ["kill", "Harvest (kill) fee", "$/head", 100, { simple: true, simpleIf: v => v.pay === "you", step: 5, src: () => "A starting guess" }],
+    ["cw", "Cut, wrap and freeze", "$/lb hanging", 1.1, { simple: true, simpleIf: v => v.pay === "you", step: .05, src: () => "A starting guess" }],
     ["yield", "Packaged beef", "% of hanging", 62, { step: 1, src: () => "What's left after bone, fat, trim and drying during aging; used for buyers' cost per pound" }],
-    ["shw", "Sold as wholes", "% of the beef", 10, { step: 5 }],
-    ["shh", "Sold as halves", "% of the beef", 60, { step: 5 }],
-    ["shq", "Sold as quarters", "% of the beef", 30, { step: 5 }],
-    ["_wh", "calc", v => { const s = shares(v); return s.raw === 100 ? "Wholes, halves and quarters add to 100%." : `These add to ${num(s.raw)}%, so each is scaled to its share of 100%.`; }],
-    ["ph", "Price, halves", "$/lb hanging", v => fbPrice(v, "half"), { step: .05, src: v => fbPriceSrc(v, "half") }],
-    ["pq", "Price, quarters", "$/lb hanging", v => fbPrice(v, "quarter"), { step: .05, src: v => fbPriceSrc(v, "quarter") }],
-    ["pw", "Price, wholes", "$/lb hanging", v => fbPrice(v, "whole"), { step: .05, src: v => fbPriceSrc(v, "whole") }],
+    ["shw", "Sold as wholes", "% of the beef", 10, { simple: true, step: 5 }],
+    ["shh", "Sold as halves", "% of the beef", 60, { simple: true, step: 5 }],
+    ["shq", "Sold as quarters", "% of the beef", 30, { simple: true, step: 5 }],
+    ["_wh", "calc", v => { const s = shares(v); return s.raw === 100 ? "Wholes, halves and quarters add to 100%." : `These add to ${num(s.raw)}%, so each is scaled to its share of 100%.`; }, { simple: true }],
+    ["ph", "Price, halves", "$/lb hanging", v => fbPrice(v, "half"), { simple: true, step: .05, src: v => fbPriceSrc(v, "half") }],
+    ["pq", "Price, quarters", "$/lb hanging", v => fbPrice(v, "quarter"), { simple: true, step: .05, src: v => fbPriceSrc(v, "quarter") }],
+    ["pw", "Price, wholes", "$/lb hanging", v => fbPrice(v, "whole"), { simple: true, step: .05, src: v => fbPriceSrc(v, "whole") }],
   ]},
   { g: "Health, labor and other operating", f: [
     ["vet", "Vet and medicine", "$/head", 30, { step: 1, src: () => "A starting guess" }],
@@ -451,7 +452,7 @@ const FB = [
     ["haulp", "Hauling to the processor", "$/head", 25, { step: 1, src: () => "A starting guess" }],
     ["mktg", "Advertising, insurance and permits", "$/head", 35, { step: 5, src: () => "A starting guess: website or ads, liability insurance, any permits" }],
     ["rate", "Interest rate", "%", () => P.op_rate, { step: .05, src: () => rateSrc() }],
-    ["chrent", "Charge rent on pasture", "", 1, { check: true }],
+    ["chrent", "Charge rent on pasture", "", 1, { simple: true, check: true }],
     ["rent", "Pasture rent", "$/acre/year", () => P.rent, { step: 1, show: v => v.chrent, src: () => priceSrc("rent") }],
   ]},
   { g: "Ownership costs", f: [
@@ -459,6 +460,8 @@ const FB = [
     ["ovh", "Overhead", "$/head", 10, { step: 1 }],
   ]},
 ];
+// permanent pasture upkeep for part of a year (Stocker, Freezer beef); Josh, 11/16/2026
+const PRORATE = "share of the year by days owned; enter your own number if these cattle use the whole season's grass";
 const fbDays = v => v.adg > 0 ? Math.max(v.w1 - v.w0, 0) / v.adg : 0;
 // Grain-fed prices are starting guesses; grass-fed start from USDA-AMS's National Grass Fed
 // Beef Report (direct to consumer, processing not included) and follow it each quarter.
@@ -558,11 +561,12 @@ function roundFor(v, step) {   // whole numbers stay whole; others get the step'
 }
 
 // ---------- cow-calf budget ----------
-function cowCalf(v) {
+// opt.noHeifers: costs without developing replacement heifers (Purchase payoff counts every calf as sold)
+function cowCalf(v, opt = {}) {
   const N = v.cows, B = v.bulls;
-  const weaned = N * v.wean / 100, steers = weaned / 2, repl = N * (v.cull + v.death) / 100;
+  const weaned = N * v.wean / 100, steers = weaned / 2, repl = N * (v.cull + v.death) / 100, keep = opt.noHeifers ? 0 : repl;
   const heifers = Math.max(0, weaned / 2 - repl), culls = N * v.cull / 100, cbulls = B / v.byears;
-  const units = N + 1.4 * B + 0.7 * repl;                 // pasture and hay animal units
+  const units = N + 1.4 * B + 0.7 * keep;                 // pasture and hay animal units
   const rows = [], add = (sec, item, qty, unit, price, total, note) => (qty === 0 && total === 0) || rows.push({ sec, item, qty, unit, price, total, note });
   const R = "Income", O = "Operating costs", F = "Ownership costs";
   add(R, "Steer calves", steers, "head", v.swt * v.sp / 100, steers * v.swt * v.sp / 100, `${num(v.swt)} lb at ${usd(v.sp, 2)}/cwt`);
@@ -584,7 +588,7 @@ function cowCalf(v) {
     hAcres = tons / v.hyield;
     add(O, "Hay, raised", tons, "tons", ha.d / v.hyield, hAcres * ha.d, `${num(hAcres, 1)} acres at ${num(v.hyield, 2)} tons/acre; hay ground: ${acreNote(ha)}`);
   } else add(O, "Hay, bought", tons, "tons", v.hayp, tons * v.hayp);
-  const flb = N * v.clb * v.cdays + repl * v.hlb * v.hdays + B * v.blb * v.bdays + weaned * v.creep;
+  const flb = N * v.clb * v.cdays + keep * v.hlb * v.hdays + B * v.blb * v.bdays + weaned * v.creep;
   const fp = P[v.feed] + v.handling;
   add(O, "Supplement", flb / 2000, "tons", fp, flb / 2000 * fp, `${FEEDS.find(f => f[0] === v.feed)[1].toLowerCase()} for cows, replacement heifers, bulls${v.creep ? " and calves" : ""}`);
   const mlb = units * v.minoz / 16 * 365;
@@ -642,7 +646,9 @@ function stocker(v) {
   add(O, "Freight in", H, "head", v.freight, H * v.freight);
   let acres = 0, fa = null;
   if (v.sys === "custom") add(O, "Grazing", H * v.days, "head-days", v.gday, H * v.days * v.gday);
-  else { fa = acreCost(v, "G", v.sys); acres = H / v.stock; add(O, "Grazing", acres, "acres", fa.d, acres * fa.d, `${FNAME[v.sys]}; ${acreNote(fa)}`); }
+  else { fa = acreCost(v, "G", v.sys); acres = H / v.stock;
+    const sh = v.sys === "pasture" && fa.how !== "own" ? Math.min(1, v.days / 365) : 1;   // permanent pasture: the days owned; ryegrass: one season
+    add(O, "Grazing", acres, "acres", fa.d * sh, acres * fa.d * sh, `${FNAME[v.sys]}; ${acreNote(fa)}${sh < 1 ? `; ${PRORATE}` : ""}`); }
   add(O, "Hay", H * v.hayt, "tons", v.hayp, H * v.hayt * v.hayp);
   const fp = P[v.feed] + v.handling, ft = H * v.slb * v.days / 2000, rt = H * v.rlb * v.rdays / 2000;
   if (rt > 0) add(O, "Receiving feed", rt, "tons", fp, rt * fp, `${num(v.rlb, 1)} lb a head a day for ${num(v.rdays)} days`);
@@ -739,15 +745,15 @@ function freezer(v) {
   const ht = H * v.hayday * days / 2000;
   if (ht > 0) add(O, "Hay", ht, "tons", v.hayp, ht * v.hayp);
   const pa = acreCost(v, "P", "pasture"), wa = acreCost(v, "W", v.wsys);
-  const pAc = H * v.pacres, wAc = H * v.wacres, pShare = Math.min(1, t);
-  if (pAc > 0) add(O, "Permanent pasture", pAc, "acres", pa.d * pShare, pAc * pa.d * pShare, `${acreNote(pa)}; for ${num(days)} days`);
+  const pAc = H * v.pacres, wAc = H * v.wacres, pShare = Math.min(1, t), uShare = pa.how === "own" ? 1 : pShare;   // your own $/acre is charged as entered
+  if (pAc > 0) add(O, "Permanent pasture", pAc, "acres", pa.d * uShare, pAc * pa.d * uShare, `${acreNote(pa)}${uShare < 1 ? `; ${PRORATE}` : ""}`);
   if (wAc > 0) add(O, "Winter annual pasture", wAc, "acres", wa.d, wAc * wa.d, `${FNAME[v.wsys]}; ${acreNote(wa)}; one season`);
   const ml = H * v.minoz / 16 * days;
   add(O, "Salt and mineral", ml, "lb", v.minp, ml * v.minp);
   add(O, "Vet and medicine", H, "head", v.vet, H * v.vet);
   add(O, "Hired labor", H * v.hrs, "hours", v.wage, H * v.hrs * v.wage);
   add(O, "Fuel", H * v.gal, "gal", P.diesel, H * v.gal * P.diesel);
-  add(O, "Hauling to the processor", sold, "head", v.haulp, sold * v.haulp);
+  add(O, "Hauling to the processor", sold, "head", v.haulp, sold * v.haulp, `${num(sold, 2)} head (after death loss)`);
   if (v.pay === "you") add(O, "Processing", sold, "head", v.kill + v.cw * hang, sold * (v.kill + v.cw * hang), `${usd(v.kill)} harvest fee and ${usd(v.cw, 2)}/lb hanging to cut, wrap and freeze`);
   add(O, "Advertising, insurance and permits", H, "head", v.mktg, H * v.mktg);
   const rentAc = pAc + (v.wsys === "ryegrass" ? wAc : 0);
@@ -867,10 +873,11 @@ const isBull = v => v.kind === "bull", isFemale = v => v.kind !== "bull";
 const KIND_NAME = { cow: "Bred cow", heifer: "Bred heifer", bull: "Bull" };
 function ccBase() {
   const v = typeof CCF !== "undefined" && CCF ? CCF.v : makeForm(CC, "cc").v, r = cowCalf(v);
-  const line = re => r.rows.filter(x => re.test(x.item)).reduce((t, x) => t + x.total, 0);
-  // the payoff discounts the purchase itself, so the cow-calf budget's interest on the cow investment stays out
+  // the payoff counts every calf as sold, so the cow's costs leave out developing replacement heifers
+  // (the bull's share stays in); it discounts the purchase itself, so interest on the cow investment stays out too
+  const c = cowCalf(v, { noHeifers: true }), line = re => c.rows.filter(x => re.test(x.item)).reduce((t, x) => t + x.total, 0);
   const mkt = line(/^Marketing/), cowInt = line(/^Interest on cow investment/);
-  return { v, r, costPerCow: (r.total - mkt - cowInt) / r.N, opPerCow: (r.op - mkt) / r.N,
+  return { v, r, costPerCow: (c.total - mkt - cowInt) / c.N, opPerCow: (c.op - mkt) / c.N,
            cwt: (v.swt + v.hwt) / 2, price: (v.sp + v.hp) / 2 };
 }
 function calfPriceHist(weight, month, n = 10) {   // the average calf price in that month over the last n years
@@ -911,7 +918,7 @@ const PP = [
   ]},
   { g: "Yearly costs", open: true, f: [
     ["cost", "Yearly cost to keep a cow", "$/cow", v => coverOp(v) ? ccBase().opPerCow : ccBase().costPerCow, { step: 10, show: isFemale,
-      src: v => `Your Cow-calf budget's ${coverOp(v) ? "operating costs" : "costs"} per cow, without marketing` }],
+      src: v => `Your Cow-calf budget's ${coverOp(v) ? "operating costs" : "costs"} per cow, without marketing. Replacement heifer development is left out because every calf is counted as sold.` }],
     ["bcost", "Yearly cost to keep the bull", "$/bull", () => bullKeep(ccBase().v), { step: 10, show: isBull, src: () => "1.4 times a cow's pasture, hay, supplement, mineral and vet costs in your Cow-calf budget" }],
   ]},
   { g: "When culled", f: [

@@ -272,6 +272,13 @@ details.modehelp .note { margin: 6px 0 0; }
   .sticky-res button { flex: 0 0 auto; }
   body.has-sticky { padding-bottom: 56px; }
   .modebar { gap: 8px 12px; } .modebar .top-reset { order: 1; } details.modehelp { order: 2; }   /* Start over beside Simple/Full */
+  /* the header with the cost region line, and Costs to cover beside its switch, keep the first tiles on the first screen */
+  .mast p.asof { font-size: 13px; line-height: 1.35; }
+  .place { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px 8px; align-items: center; }
+  .place select { width: 100%; }
+  .segwrap { display: flex; align-items: center; gap: 8px; }
+  .segwrap .seglab { flex: 0 0 auto; max-width: 5.5em; line-height: 1.2; }
+  .seg button { padding: 6px 14px; } .sub { font-size: 14px; line-height: 1.4; }   /* Freezer beef has three switches */
 }
 .tabs { --cue: var(--bg); }
 .tabs .cue { position: absolute; top: 0; bottom: 1px; width: 44px; display: none; align-items: center; pointer-events: none; font-size: 22px; font-weight: 700; color: var(--ink-2); }
@@ -299,7 +306,8 @@ details.modehelp .note { margin: 6px 0 0; }
   <h1>Beef cattle budgets</h1>
   <p class="asof" id="asof">Loading prices&hellip;</p>
   <div class="place" id="place" hidden><label for="state-sel">State</label><select id="state-sel"></select>
-    <label for="region-sel">USDA-ERS region</label><select id="region-sel"></select></div>
+    <label for="region-sel">Cost region (USDA-ERS)</label><select id="region-sel"></select></div>
+  <p class="asof" id="region-note" hidden></p>
   <p class="stale" id="ms-note" hidden>Feed, hay, fertilizer and forage numbers are Mississippi's. Enter your own where they differ.</p>
       <p class="asof tools-line"><a href="#more-tools">More cattle tools</a><button type="button" class="share-btn" id="share-view">Share this page</button><span class="sr-only" role="status" id="share-msg"></span></p>
 </div></header>
@@ -435,7 +443,12 @@ details.modehelp .note { margin: 6px 0 0; }
       <button type="button" role="radio" data-sys="grain">Grain-fed</button>
       <button type="button" role="radio" data-sys="grass">Grass-fed</button>
     </div>
+      <div class="seg" role="radiogroup" aria-label="How much detail" data-mode-for="fb">
+        <button type="button" role="radio" data-mode="simple">Simple</button>
+        <button type="button" role="radio" data-mode="full">Full</button>
+      </div>
       <p class="note">Operating costs: what is spent while you own the cattle. All costs: also depreciation, facilities, overhead, taxes and insurance.</p>
+      <p class="note">Simple asks what most producers know and fills in the rest with starting numbers and <span data-month></span> average prices. Full shows every cost and price.</p>
       <button type="button" class="btn top-reset" data-reset="fb">Start over</button>
     </div>
     <div class="tiles" id="fb-tiles"></div>
@@ -547,7 +560,7 @@ details.modehelp .note { margin: 6px 0 0; }
   </div>
 </div></footer>
 
-<script src="budget.js?v=2345d4fac0"></script>
+<script src="budget.js?v=22fa3ab9b2"></script>
 <script>
 "use strict";
 // the page: forms, tables, charts and tabs; the math is in budget.js
@@ -641,7 +654,7 @@ function sync(st, skip) {     // push values into the form
   const box = $(`#${st.key}-in`), simple = st.mode === "simple";
   st.fields.forEach(([id, label, unit, def, o = {}]) => {
     const el = $(`[data-id="${id}"]`, box); if (!el) return;
-    el.hidden = (o.show ? !o.show(st.v) : false) || (simple && !o.simple) || (!!o.simpleOnly && !simple);
+    el.hidden = (o.show ? !o.show(st.v) : false) || (simple && !inSimple(o, st.v)) || (!!o.simpleOnly && !simple);
     if (MS_FIELDS.has(id)) msTag(el);
     if (o.check) { $("input", el).checked = !!st.v[id]; return; }
     if (o.select) { $("select", el).value = String(st.v[id]); const s = $(".src", el); if (s) { if (o.html) s.innerHTML = o.src(st.v); else s.textContent = o.src(st.v); } return; }
@@ -681,7 +694,7 @@ function fmtField(f, v) {
 }
 function assumed(st) {   // the inputs Simple hides, in plain words, by group
   return st.spec.filter(g => g.f && !g.cash).map(g => {
-    const items = g.f.filter(f => f[1] !== "calc" && !(f[4] || {}).simple && !((f[4] || {}).show && !f[4].show(st.v))).map(f => fmtField(f, st.v));
+    const items = g.f.filter(f => f[1] !== "calc" && !inSimple(f[4] || {}, st.v) && !((f[4] || {}).show && !f[4].show(st.v))).map(f => fmtField(f, st.v));
     return items.length ? `<p><b>${g.g}.</b> ${items.join("; ")}.</p>` : "";
   }).join("") + `<p>Fertilizer, diesel and feed are at ${D.month_label} average prices (Full view, Market prices).</p>`;
 }
@@ -1508,8 +1521,10 @@ const histRows = st => historyRows(st).filter(x => ym(x.year, HIST_ANCHOR[st.key
 // What a past year keeps at this year's values (C3): starting guesses and anything the user typed per acre.
 function heldNote(key, v) {
   const typed = ["P", "W", "H", "G"].some(r => v["fc" + r] === "own") ? ", and the cost per acre you typed" : "";
-  const held = { cc: "facilities, repairs, mineral, hauling, bull price and feed handling", st: "facilities, mineral, hauling, trucking and feed handling",
-                 ro: "yardage, trucking and hauling", fb: "facilities, mineral, hauling, feed handling and processing" }[key];
+  const held = { cc: "facilities, repairs, mineral, hauling, bull price and feed handling",
+                 st: "processing and health, facilities, overhead, mineral, hauling, trucking and feed handling",
+                 ro: "processing and health, yardage, trucking and hauling",
+                 fb: "vet and medicine, facilities, overhead, mineral, hauling, feed handling, processing, and advertising, insurance and permits" }[key];
   return `Held at this year's values: ${held}${typed}.`;
 }
 function drawHistory(st) {
@@ -1629,7 +1644,7 @@ function about() {
     <li><b>Fed cattle:</b> CME live cattle futures for the contract in or after the sale month, plus that month's average basis (5-area negotiated live steer price minus nearby futures). Heifers use the same price.</li>
     <li><b>Pasture and hay:</b> MSU Extension's 2027 forage budgets as printed, at the prices below; each line can be changed on the Forage costs tab.</li>
     <li><b>Feed, fertilizer, fuel, labor, rent, interest, vet and overhead:</b> the table below.</li>
-    <li><b>USDA-ERS region:</b> vet, overhead, the pasture rental value and the cost comparison use the ${D.ers_regions[REGION].name} region${REGION === STATE.region ? `, which holds most of ${STATE.name}'s beef cows (2022 Census of Agriculture)` : ` (chosen at the top; ${STATE.name} starts on ${D.ers_regions[STATE.region].name}, which holds most of its beef cows)`}.</li>
+    <li><b>Cost region (USDA-ERS):</b> vet, overhead, the pasture rental value and the cost comparison use the ${D.ers_regions[REGION].name} region${REGION === STATE.region ? `, which holds most of ${STATE.name}'s beef cows (2022 Census of Agriculture)` : ` (chosen at the top; ${STATE.name} starts on ${D.ers_regions[STATE.region].name}, which holds most of its beef cows)`}.</li>
     <li><b>Freezer beef:</b> grass-fed prices start from the USDA-AMS National Grass Fed Beef Report (quarterly, direct to consumer, processing not included); grain-fed prices are starting guesses.</li>
     <li><b>Starting guesses:</b> herd performance, feeding rates, mineral price, labor hours, facilities, health costs, yardage, trucking, and grain-fed freezer beef prices and processing are starting numbers, not published prices.</li>
   </ul>
@@ -1714,7 +1729,7 @@ function restoreSaved(saved) {
 }
 function startForms(saved) {
   CCF = makeForm(CC, "cc"); STF = makeForm(ST, "st"); ROF = makeForm(RO, "ro"); FBF = makeForm(FB, "fb"); PPF = makeForm(PP, "pp");
-  CCF.mode = STF.mode = "simple";
+  CCF.mode = STF.mode = FBF.mode = "simple";
   [CCF, STF, ROF, FBF, PPF].forEach(f => { const g = saved[f.key]; if (g) { Object.assign(f.typed, g.typed); if (g.mode && f.mode) f.mode = g.mode; } });
   [CCF, STF, ROF, FBF, PPF].forEach(f => { render(f); update(f); });
 }
@@ -1791,6 +1806,10 @@ function stateText() {      // everything on the page that names the state or re
   $("#asof").innerHTML = `${D.month_label} average prices for ${STATE.name}, updated monthly. For this week's auction prices, see <a href="../cattleprices/?state=${STATE.code}">Cattle Auction Prices</a>.`;
   $("#state-sel").value = STATE.code; $("#region-sel").value = REGION;
   $("#ms-note").hidden = STATE.code === "ms";
+  const rn = $("#region-note"), R = D.ers_regions || {};     // what the region sets; Mississippi's southeast is another region (ERS county file)
+  rn.textContent = "The cost region sets vet, overhead and the pasture rental value." + (STATE.code === "ms" && R.southern_seaboard && R.mississippi_portal
+    ? ` Southeast Mississippi is in ${R.southern_seaboard.name}; the rest of the state is in ${R.mississippi_portal.name}.` : "");
+  rn.hidden = false;
   document.querySelectorAll("[data-state-name]").forEach(e => { e.textContent = STATE.name; });
   const a = $("#ab-auction-link"); if (a) a.href = `../cattleprices/?state=${STATE.code}#week`;
   about();
@@ -1853,7 +1872,7 @@ fetch("data/prices.json").then(r => { if (!r.ok) throw new Error(r.status); retu
     PPF.typed.kind = b.dataset.kind; PP_BY_KIND.forEach(k => delete PPF.typed[k]); update(PPF);
   }));
   document.querySelectorAll("[data-mode-for]").forEach(seg => seg.querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
-    const f = { cc: CCF, st: STF }[seg.dataset.modeFor]; f.mode = b.dataset.mode; update(f);
+    const f = { cc: CCF, st: STF, fb: FBF }[seg.dataset.modeFor]; f.mode = b.dataset.mode; update(f);
   })));
   document.querySelectorAll("[data-cover-for]").forEach(seg => seg.querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
     const f = { cc: CCF, st: STF, fb: FBF, pp: PPF }[seg.dataset.coverFor]; f.typed.cover = b.dataset.cover; update(f);
@@ -1883,7 +1902,7 @@ fetch("data/prices.json").then(r => { if (!r.ok) throw new Error(r.status); retu
     if (!e.target.closest("#reset-yes")) return;
     ask.hidden = true;
     forgetSaved(); resetShared();
-    [CCF, STF, ROF, FBF, PPF].forEach(f => f.reset()); CCF.mode = STF.mode = "simple";
+    [CCF, STF, ROF, FBF, PPF].forEach(f => f.reset()); CCF.mode = STF.mode = FBF.mode = "simple";
     document.querySelectorAll("[data-rep]").forEach(inp => { inp.value = ""; });
     const mn = $("#month-note"); if (mn) mn.remove();
     refreshAll();
