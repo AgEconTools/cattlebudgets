@@ -243,6 +243,13 @@ footer .legal { display: grid; gap: 8px; margin-top: 18px; }
 .asof.tools-line { margin-top: 6px; font-size: 13px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; }
 .share-btn { all: unset; cursor: pointer; text-decoration: underline; color: inherit; font: inherit; }
 .share-btn:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; border-radius: 2px; }
+/* the copy-by-hand box, shown only when the clipboard is blocked */
+.share-box { margin-top: 8px; font-size: 13px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.share-box[hidden] { display: none; }
+.share-box input { flex: 1 1 18em; min-width: 0; max-width: 40em; font: inherit; font-size: 14px; padding: 6px 8px; border-radius: 4px;
+  border: 1px solid currentColor; background: rgba(255, 255, 255, .12); color: inherit; }
+.share-box input:focus { outline: 2px solid currentColor; outline-offset: 1px; }
+@media print { .share-box { display: none; } }
 .tools-strip { margin: 0 0 24px; scroll-margin-top: 80px; }   /* clears the sticky tab bar */
 .tools-strip h2 { margin: 0 0 10px; }
 .tools-strip ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
@@ -314,6 +321,7 @@ details.regionhelp > summary { cursor: pointer; color: inherit; text-decoration:
   <details class="regionhelp" id="region-help" hidden><summary>What the cost region sets</summary><p class="asof" id="region-note"></p></details>
   <p class="stale" id="ms-note" hidden>Feed, hay, fertilizer and forage numbers are Mississippi's. Enter your own where they differ.</p>
       <p class="asof tools-line"><a href="#more-tools">More cattle tools</a><button type="button" class="share-btn" id="share-view">Share this page</button><span class="sr-only" role="status" id="share-msg"></span></p>
+  <div class="share-box" id="share-box" hidden><label for="share-url">Copy this link:</label><input id="share-url" type="text" readonly spellcheck="false"><button type="button" class="share-btn" id="share-close">Close</button></div>
 </div></header>
 <nav class="tabs" aria-label="Sections"><div class="wrap" role="tablist">
   <button class="tab" role="tab" data-tab="cc" aria-selected="true">Cow-calf</button>
@@ -1997,9 +2005,22 @@ addEventListener("beforeprint", () => {
       if (navigator.share && matchMedia("(pointer: coarse)").matches) {
         try { await navigator.share({ title: document.title, url }); return; } catch (e) { if (e && e.name === "AbortError") return; }
       }
-      try { await navigator.clipboard.writeText(url); say("Link copied"); }
-      catch (e) { window.prompt("Copy this link:", url); }
+      try { await navigator.clipboard.writeText(url); say("Link copied"); hideBox(); }
+      catch (e) { showBox(url); }
     });
+    // Where the clipboard is blocked (some in-app browsers; window.prompt can fail there too), show the
+    // link as selected text under the button so it can be copied by hand.
+    const box = document.getElementById("share-box"), field = document.getElementById("share-url");
+    const hideBox = () => { box.hidden = true; };
+    const showBox = (url) => {
+      field.value = url; box.hidden = false; field.focus(); field.select();
+      let ok = false; try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+      if (ok) { hideBox(); btn.focus(); say("Link copied"); }   // copied after all: nothing left to do by hand
+      else { msg.textContent = "Copy the link shown below the button."; }
+    };
+    document.getElementById("share-close").addEventListener("click", () => { hideBox(); btn.focus(); });
+    field.addEventListener("focus", () => field.select());
+    field.addEventListener("keydown", (e) => { if (e.key === "Escape") { hideBox(); btn.focus(); } });
   }
   const STATE_TOOLS = ["cattleprices", "drought"];
   const carry = a => {
