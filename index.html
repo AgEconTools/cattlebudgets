@@ -261,7 +261,8 @@ footer .legal { display: grid; gap: 8px; margin-top: 18px; }
 details.modehelp { flex-basis: 100%; }
 details.modehelp > summary { cursor: pointer; color: var(--link); font-size: 13.5px; }
 details.modehelp .note { margin: 6px 0 0; }
-@media (min-width: 561px) { details.modehelp > summary { display: none; } }
+@media (min-width: 561px) { details.modehelp > summary, details.regionhelp > summary { display: none; } }
+details.regionhelp > summary { cursor: pointer; color: inherit; text-decoration: underline; font-size: 13px; margin-top: 6px; }   /* the cost region line folds away on a phone too */
 .sticky-res { display: none; }
 .panel .card { scroll-margin-top: 64px; }   /* clear of the sticky tab bar when the Budget button scrolls to it */
 @media (max-width: 560px) {
@@ -273,7 +274,7 @@ details.modehelp .note { margin: 6px 0 0; }
   body.has-sticky { padding-bottom: 56px; }
   .modebar { gap: 8px 12px; } .modebar .top-reset { order: 1; } details.modehelp { order: 2; }   /* Start over beside Simple/Full */
   /* the header with the cost region line, and Costs to cover beside its switch, keep the first tiles on the first screen */
-  .mast p.asof { font-size: 13px; line-height: 1.35; }
+  .mast .wrap { padding-block: 14px 12px; } .mast p.asof { font-size: 13px; line-height: 1.35; }
   .place { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px 8px; align-items: center; }
   .place select { width: 100%; }
   .segwrap { display: flex; align-items: center; gap: 8px; }
@@ -310,7 +311,7 @@ details.modehelp .note { margin: 6px 0 0; }
   <p class="asof" id="asof">Loading prices&hellip;</p>
   <div class="place" id="place" hidden><label for="state-sel">State</label><select id="state-sel"></select>
     <label for="region-sel">Cost region (USDA-ERS)</label><select id="region-sel"></select></div>
-  <p class="asof" id="region-note" hidden></p>
+  <details class="regionhelp" id="region-help" hidden><summary>What the cost region sets</summary><p class="asof" id="region-note"></p></details>
   <p class="stale" id="ms-note" hidden>Feed, hay, fertilizer and forage numbers are Mississippi's. Enter your own where they differ.</p>
       <p class="asof tools-line"><a href="#more-tools">More cattle tools</a><button type="button" class="share-btn" id="share-view">Share this page</button><span class="sr-only" role="status" id="share-msg"></span></p>
 </div></header>
@@ -563,7 +564,7 @@ details.modehelp .note { margin: 6px 0 0; }
   </div>
 </div></footer>
 
-<script src="budget.js?v=b36632f8bd"></script>
+<script src="budget.js?v=4e811e0477"></script>
 <script>
 "use strict";
 // the page: forms, tables, charts and tabs; the math is in budget.js
@@ -622,7 +623,7 @@ function priceGroup(st, g) {
 function field(st, f) {
   const [id, label, unit, def, o = {}] = f;
   const el = document.createElement("div");
-  if (label === "calc") { el.className = "calc"; el.dataset.calc = id; el._calc = unit; el._simple = !!(def && def.simple); el._html = !!(def && def.html);
+  if (label === "calc") { el.className = "calc"; el.dataset.calc = id; el._calc = unit; el._simple = !!(def && def.simple); el._simpleIf = def && def.simpleIf; el._html = !!(def && def.html);
     el._show = def && def.show; el._simpleOnly = !!(def && def.simpleOnly); return el; }
   el.className = "f" + (o.check ? " check" : "") + (o.wide || o.check ? " wide" : "");
   el.dataset.id = id;
@@ -671,7 +672,7 @@ function sync(st, skip) {     // push values into the form
       $("button", src).addEventListener("click", () => { delete st.typed[id]; update(st); });
     } else if (o.html) src.innerHTML = txt; else src.textContent = txt;
   });
-  box.querySelectorAll("[data-calc]").forEach(el => { el.hidden = (simple && !el._simple) || (el._simpleOnly && !simple) || (!!el._show && !el._show(st.v)); if (el._html) el.innerHTML = el._calc(st.v); else el.textContent = el._calc(st.v); });
+  box.querySelectorAll("[data-calc]").forEach(el => { el.hidden = (simple && (!el._simple || (!!el._simpleIf && !el._simpleIf(st.v)))) || (el._simpleOnly && !simple) || (!!el._show && !el._show(st.v)); if (el._html) el.innerHTML = el._calc(st.v); else el.textContent = el._calc(st.v); });
   box.querySelectorAll("details[data-g]").forEach(d => { d.hidden = ![...$(".fields", d).children].some(c => !c.hidden); });
   box.querySelectorAll("details[data-prices]").forEach(d => { d.hidden = simple; });
   box.querySelectorAll("[data-pk]").forEach(el => {
@@ -1816,7 +1817,7 @@ function stateText() {      // everything on the page that names the state or re
   const rn = $("#region-note"), R = D.ers_regions || {};     // what the region sets; Mississippi's southeast is another region (ERS county file)
   rn.textContent = "The cost region sets vet, overhead and the pasture rental value." + (STATE.code === "ms" && R.southern_seaboard && R.mississippi_portal
     ? ` Southeast Mississippi is in ${R.southern_seaboard.name}; the rest of the state is in ${R.mississippi_portal.name}.` : "");
-  rn.hidden = false;
+  $("#region-help").hidden = false;
   document.querySelectorAll("[data-state-name]").forEach(e => { e.textContent = STATE.name; });
   const a = $("#ab-auction-link"); if (a) a.href = `../cattleprices/?state=${STATE.code}#week`;
   about();
@@ -1958,10 +1959,11 @@ function wireKeys() {
   list.addEventListener("scroll", cue, { passive: true }); addEventListener("resize", cue); cue();
   // the notes under each budget's switches fold away on a phone (open on wider screens)
   const wide = matchMedia("(min-width: 561px)");
+  const rh = $("#region-help"); if (rh) rh.open = wide.matches;
   document.querySelectorAll(".modebar").forEach(mb => { const ns = [...mb.querySelectorAll(":scope > p.note")]; if (!ns.length) return;
     const d = document.createElement("details"); d.className = "modehelp"; d.innerHTML = "<summary>What these choices mean</summary>";
     mb.insertBefore(d, ns[0]); ns.forEach(n => d.appendChild(n)); d.open = wide.matches; });
-  wide.addEventListener("change", () => document.querySelectorAll("details.modehelp").forEach(d => { if (wide.matches) d.open = true; }));
+  wide.addEventListener("change", () => document.querySelectorAll("details.modehelp, details.regionhelp").forEach(d => { if (wide.matches) d.open = true; }));
 }
 // Print (G): the inputs as a short list of assumptions above the results, as in the Word report
 addEventListener("beforeprint", () => {
