@@ -144,6 +144,11 @@ const inBales = v => v.hayin === "bales";
 const baleWtField = (simple = false) => ["balewt", "Bale weight", "lb", 900, { simple, step: 50, show: inBales, src: () => "A starting guess for a round bale; weigh a few if you can" }];
 const balepField = (show = () => true, simple = false) => ["balep", "Hay price per bale", "$/bale", v => P.hay_market * v.balewt / 2000,
   { simple, step: 1, show: v => inBales(v) && show(v), src: v => `${usd(P.hay_market)}/ton for a ${num(v.balewt)} lb bale (${priceSrc("hay_market")}); add delivery` }];
+// Borrowed or cash on hand (outside review, 11/18/2026); the rate's notes are rateSrc and cashSrc below
+const finField = () => ["fin", "Paying for it", "", "loan", { wide: true, select: [["loan", "Borrowed money"], ["cash", "Cash on hand"]],
+  src: v => v?.fin === "cash" ? "Cash still has a cost: what it would earn if you didn't spend it." : "" }];
+const rateField = (label = "Interest rate", extra = "") => ["rate", label, "%", v => v.fin === "cash" && hasSave() ? P.save_rate : P.op_rate,
+  { step: .05, src: v => (v?.fin === "cash" ? cashSrc() : rateSrc()) + extra }];
 const ccUnits = v => v.cows + 1.4 * v.bulls + 0.7 * v.cows * (v.cull + v.death) / 100;   // pasture and hay animal units, replacement heifers kept
 // The cost-per-acre choice for one forage in a budget, and the user's own number.
 function forageFields(role, name, sysOf, show = () => true, ers = false, ownNote = null) {
@@ -260,7 +265,7 @@ const CC = [
     ["comm", "Sale commission", "% of sales", 3, { step: .25 }],
     ["haul", "Hauling to the sale", "$/head", 6, { step: 1 }],
     ["imonths", "Months operating money is borrowed", "months", 6, { step: 1 }],
-    ["rate", "Interest rate", "%", () => P.op_rate, { step: .05, src: () => rateSrc() }],
+    finField(), rateField(),
   ]},
   { g: "Ownership costs", f: [
     ["fac", "Pens, chute, fence, water, trailer per cow", "$/year", 125, { step: 5, src: () => "A starting guess. Alabama Extension's cow-calf cost studies report $109 to $277 a cow in depreciation." }],
@@ -330,7 +335,7 @@ const ST = [
     ["gal", "Truck and feeding fuel per head", "gal", 3, { step: .5, src: () => `Diesel at ${usd(P.diesel, 2)}/gal` }],
     ["comm", "Sale commission", "% of sales", 3, { step: .25 }],
     ["haul", "Hauling to the sale", "$/head", 6, { step: 1 }],
-    ["rate", "Interest rate", "%", () => P.op_rate, { step: .05, src: () => rateSrc() }],
+    finField(), rateField(),
   ]},
   { g: "Ownership costs", f: [
     ["fac", "Pens, chute, fence, water, trailer", "$/head", 25, { step: 1, src: () => "Depreciation and interest for the time owned; a starting guess" }],
@@ -379,7 +384,7 @@ const RO = [
     ["fees", "Checkoff and sale fees", "$/head", 3, { step: .5, src: () => "$1 beef checkoff plus brand inspection and other fees; a starting guess" }],
   ]},
   { g: "Interest", f: [
-    ["rate", "Interest rate", "%", () => P.op_rate, { step: .05, src: () => rateSrc() }],
+    finField(), rateField(),
   ]},
 ];
 const stSaleWt = v => (v.w0 + v.adg * v.days) * (1 - (v.sshrink || 0) / 100);   // pay weight after the sale shrink
@@ -475,7 +480,7 @@ const FB = [
     ["gal", "Truck and feeding fuel per head", "gal", 6, { step: .5, src: () => `Diesel at ${usd(P.diesel, 2)}/gal` }],
     ["haulp", "Hauling to the processor", "$/head", 25, { step: 1, src: () => "A starting guess" }],
     ["mktg", "Advertising, insurance and permits", "$/head", 35, { step: 5, src: () => "A starting guess: website or ads, liability insurance, any permits" }],
-    ["rate", "Interest rate", "%", () => P.op_rate, { step: .05, src: () => rateSrc() }],
+    finField(), rateField(),
     ["chrent", "Charge rent on pasture", "", 1, { check: true }],
     ["rent", "Pasture rent", "$/acre/year", () => P.rent, { step: 1, show: v => v.chrent, src: () => priceSrc("rent") }],
   ]},
@@ -551,7 +556,7 @@ function thinNote(cls, wt) {
   return thin.map(t => `. The ${t.lo}–${t.lo + 100} lb class had ${num(t.head)} head in ${D.month_label}, so its price is estimated from the neighboring classes`).join("");
 }
 const SHORT = { hay_market: "Alabama hay report", wage: "Mississippi beef cattle ranch wage", rent: "Mississippi average",
-  op_rate: "Average new operating loan", cattle_rate: "Average new feeder cattle loan", vet_cow: "Mississippi Portal average, carried forward",
+  op_rate: "Average new operating loan", save_rate: "1-year Treasury rate", cattle_rate: "Average new feeder cattle loan", vet_cow: "Mississippi Portal average, carried forward",
   overhead_cow: "Mississippi Portal average", fed_live: "5-area negotiated cash", fed_dressed: "5-area negotiated cash", corn_omaha: "Omaha",
   urea: "North Carolina and Oklahoma average", dap: "North Carolina and Oklahoma average", potash: "North Carolina and Oklahoma average",
   diesel: "North Carolina and Oklahoma average", soyhulls: "Alabama wholesale", cottonseed: "Alabama wholesale", cgf: "Alabama wholesale",
@@ -562,7 +567,12 @@ function priceSrc(k) {
   if (P[k] !== p.value) return "Your price (Market prices, in the Full view)";
   return `${SHORT[k] ? SHORT[k] + ": " : ""}${p.source}, ${pdate(p)}`;
 }
-const rateSrc = () => P.op_rate !== D.prices.op_rate.value ? priceSrc("op_rate") : `${SHORT.op_rate}, ${D.prices.op_rate.source}, ${pdate(D.prices.op_rate)}. Enter your lender's rate; if you pay cash, what that money would earn elsewhere.`;
+const rateSrc = () => P.op_rate !== D.prices.op_rate.value ? priceSrc("op_rate") : `${SHORT.op_rate}, ${D.prices.op_rate.source}, ${pdate(D.prices.op_rate)}. Enter your lender's rate.`;
+// Borrowed or cash on hand (outside review, 11/18/2026): cash still has a cost, what it would earn instead,
+// which starts at the 1-year Treasury rate (about a CD's), not the operating loan rate.
+const hasSave = () => P.save_rate != null && D.prices.save_rate;
+const cashSrc = () => !hasSave() ? "No savings rate in this month's prices; enter what your cash would earn."
+  : P.save_rate !== D.prices.save_rate.value ? priceSrc("save_rate") : `${SHORT.save_rate}, ${D.prices.save_rate.source}, ${pdate(D.prices.save_rate)}. Enter what your cash would earn.`;
 const feedSrc = k => `${FEEDS.find(f => f[0] === k)[1]} ${usd(P[k], 2)}/ton wholesale (${priceSrc(k)}); add delivery and handling`;
 
 // ---------- state ----------
@@ -941,7 +951,7 @@ const PP = [
     ["years", "Years in your herd", "years", v => ({ cow: 5, heifer: 8, bull: 4 })[v.kind], { step: 1,
       src: v => ({ cow: "A bred cow bought at 4 to 6 years old, kept to about 10", heifer: "Calves at 2, kept to about 10", bull: "Years of service" })[v.kind] }],
     ["death", "Death loss per year", "%", v => isBull(v) ? 3 : 1.5, { step: .5, src: v => isBull(v) ? "Injury and death; a starting guess" : "" }],
-    ["rate", "Interest rate (your cost of money)", "%", () => P.op_rate, { step: .05, src: () => `${rateSrc()} Net present value discounts each year at this rate.` }],
+    finField(), rateField("Interest rate (your cost of money)", " Net present value discounts each year at this rate."),
   ]},
   { g: "Calves", open: true, f: [
     ["cows", "Cows he breeds each year", "cows", 25, { step: 1, show: isBull }],
