@@ -148,6 +148,7 @@ details.grp > summary small { font-weight: 500; color: var(--muted); font-size: 
 .grid-sens { border-collapse: collapse; font-size: 14px; width: 100%; }
 .grid-sens th, .grid-sens td { padding: 7px 6px; text-align: right; border: 1px solid var(--rule); font-variant-numeric: tabular-nums; }
 .grid-sens th { background: var(--accent-soft); font-weight: 600; font-size: 13px; }
+.grid-sens th.ax { text-align: center; font-weight: 700; white-space: normal; } .grid-sens th.ax[scope="col"] { width: 7em; text-align: right; } .grid-sens td.ax-blank { border: 0; background: none; }   /* axis titles (outside review, 11/18/2026) */
 .grid-sens td.base { outline: 2px solid var(--ink); outline-offset: -2px; font-weight: 700; }
 .grid-sens td.p { background: var(--pos-bg); } .grid-sens td.n { background: var(--neg-bg); }
 
@@ -193,6 +194,7 @@ details.grp > summary small { font-weight: 500; color: var(--muted); font-size: 
 .hchart:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .readout { margin: 4px 0 0; font-size: 13.5px; color: var(--ink); font-variant-numeric: tabular-nums; min-height: 1.4em; }
+.hchart .axt { fill: var(--ink-2); font-weight: 600; }
 .hchart .nowlab { fill: var(--ink); font-weight: 700; }
 .hchart .ref { stroke: var(--ink); stroke-width: 1.5; stroke-dasharray: 6 4; }
 .hchart .reflab { fill: var(--ink); font-weight: 600; }
@@ -572,7 +574,7 @@ details.regionhelp > summary { cursor: pointer; color: inherit; text-decoration:
   </div>
 </div></footer>
 
-<script src="budget.js?v=4e811e0477"></script>
+<script src="budget.js?v=153429c7e2"></script>
 <script>
 "use strict";
 // the page: forms, tables, charts and tabs; the math is in budget.js
@@ -713,7 +715,7 @@ function assumed(st) {   // the inputs Simple hides, in plain words, by group
 // ---------- drawing ----------
 function table(res, cover) {
   const per = res.per;
-  const head = `<thead><tr><th>Item</th><th class="hide-sm">Quantity</th><th class="hide-sm">Price</th><th>Per ${res.unit}</th><th>Total</th></tr></thead>`;
+  const head = `<thead><tr><th>Item</th><th class="hide-sm">Quantity</th><th class="hide-sm">Price</th><th>Per ${res.perLabel || res.unit}</th><th>Total</th></tr></thead>`;
   let body = "", sec = "";
   const sub = (label, val, cls = "tot") => `<tr class="${cls}"><td>${label}</td><td class="hide-sm"></td><td class="hide-sm"></td><td class="num${val < 0 ? " neg" : ""}">${usd(val / per)}</td><td class="num${val < 0 ? " neg" : ""}">${usd(val)}</td></tr>`;
   res.rows.forEach((r, i) => {
@@ -729,7 +731,7 @@ function table(res, cover) {
   if (sec === "Operating costs") body += sub("Total operating costs", res.op);     // no ownership costs: no second "Total costs" line (Retained ownership)
   else body += sub("Total ownership costs", res.own) + sub("Total costs", res.total);
   body += sub("Net return", res.net, cover === "all" ? "net pick" : "net");
-  return `<table class="tbl">${head}<tbody>${body}</tbody></table>`;
+  return `<table class="tbl">${head}<tbody>${body}</tbody></table>` + (res.perNote ? `<p class="note tbl-note">${res.perNote} Head counts are averages, so they can be fractions.</p>` : "");
 }
 function tiles(id, list) {
   stickyResult(id.slice(1, 3), list[0]);
@@ -756,7 +758,8 @@ function stickyResult(key, t) {
 // exports list a two-number tile as two lines
 const flatTiles = list => list.flatMap(t => t[5] ? t[5].map(([pv, pl, x, pk]) => [pv, `${t[1]}, ${pl}`, pk || t[2], x, t[4]]) : [t]);
 function sensGrid(rowsDef, colsDef, fn, rowLabel, colLabel, neutral) {
-  let h = `<table class="grid-sens"><thead><tr><th>${rowLabel} \\ ${colLabel}</th>${colsDef.map(c => `<th>${c.label}</th>`).join("")}</tr></thead><tbody>`;
+  let h = `<table class="grid-sens"><thead><tr><td class="ax-blank"></td><th class="ax" colspan="${colsDef.length}" scope="colgroup">${colLabel}</th></tr>`
+    + `<tr><th class="ax" scope="col">${rowLabel}</th>${colsDef.map(c => `<th scope="col">${c.label}</th>`).join("")}</tr></thead><tbody>`;
   rowsDef.forEach(r => {
     h += `<tr><th>${r.label}</th>` + colsDef.map(c => { const n = fn(r.val, c.val); const base = r.base && c.base; return `<td class="${neutral ? "" : n >= 0 ? "p" : "n"}${base ? " base" : ""}">${usd(n)}${base ? '<span class="sr-only"> (your budget)</span>' : ""}</td>`; }).join("") + "</tr>";
   });
@@ -813,7 +816,7 @@ function views(key, v) {
                   : [usd(r.bullPerCow, 2), "bull cost per cow exposed each year", "", r.bullPerCow, "usd2"]],
         sens: { title: "Bull cost per calf weaned at other prices and herd sizes", rows: d.map(s => ({ val: s, base: s === 0, label: usd(v.price + s) })),
           cols: cows.map(n => ({ val: n, base: n === v.cows, label: `${num(n)} cows` })), fn: (a, n) => payoff({ ...v, price: v.price + a, cows: n }).bullPerCalf,
-          rowLabel: "Bull price", colLabel: "Cows bred a year", neutral: true,
+          rowLabel: "Bull price ($/head)", colLabel: "Cows bred a year", neutral: true,
           note: "Each cell is the bull's cost per calf weaned. The outlined cell is your budget." } };
     }
     const d = [-500, -250, 0, 250, 500], c = [-50, -25, 0, 25, 50];
@@ -834,7 +837,7 @@ function views(key, v) {
       [usd(r.cpBE, 2), "calf price that breaks even ($/cwt)", "", r.cpBE, "usd2"]],
       sens: { title: `Net present value per ${per} at other purchase and calf prices`, rows: d.map(s => ({ val: s, base: s === 0, label: usd(v.price + s) })),
         cols: c.map(s => ({ val: s, base: s === 0, label: usd(v.cp + s) })), fn: (a, b) => payoff({ ...v, price: v.price + a, cp: v.cp + b }).npv,
-        rowLabel: "Purchase price", colLabel: "Calf $/cwt", note: "Green: net present value above zero at your interest rate. Red: below zero. The outlined cell is your budget." } };
+        rowLabel: "Purchase price ($/head)", colLabel: "Calf price ($/cwt)", note: "Green: net present value above zero at your interest rate. Red: below zero. The outlined cell is your budget." } };
   }
   if (key === "cc") {
     const r = cowCalf(v);
@@ -848,7 +851,7 @@ function views(key, v) {
       sens: { rows: shifts.map(s => ({ val: s, base: s === 0, label: `${usd(v.sp + s)} / ${usd(v.hp + s)}` })),
         cols: weans.map(w => ({ val: w, base: w === v.wean, label: `${num(w)}%` })),
         fn: (s, w) => netFor(cowCalf({ ...v, sp: v.sp + s, hp: v.hp + s, wean: w }), v) / v.cows,
-        rowLabel: "Steer / heifer $/cwt", colLabel: "Calves weaned" } };
+        rowLabel: "Steer and heifer prices ($/cwt)", colLabel: "Calves weaned per cow exposed" } };
   }
   if (key === "st") {
     const r = stocker(v), mb = maxBuy(v), d = [-30, -15, 0, 15, 30], op = coverOp(v);
@@ -860,7 +863,7 @@ function views(key, v) {
       [usd(be, 2), `sale price that covers ${op ? "operating" : "all"} costs ($/cwt)`, "", be, "usd2"],
       [usd(mb, 2), "break-even purchase price ($/cwt)", "", mb, "usd2"]],
       sens: { rows: d.map(s => ({ val: s, base: s === 0, label: usd(v.p0 + s) })), cols: d.map(s => ({ val: s, base: s === 0, label: usd(v.p1 + s) })),
-        fn: (a, b) => netFor(stocker({ ...v, p0: v.p0 + a, p1: v.p1 + b }), v) / v.head, rowLabel: "Buy $/cwt", colLabel: "Sell $/cwt" } };
+        fn: (a, b) => netFor(stocker({ ...v, p0: v.p0 + a, p1: v.p1 + b }), v) / v.head, rowLabel: "Purchase price ($/cwt)", colLabel: "Sale price ($/cwt)" } };
   }
   if (key === "ro") {
     const r = retained(v), d = [-20, -10, 0, 10, 20];
@@ -870,7 +873,7 @@ function views(key, v) {
       [usd(r.beSale, 2), "fed cattle price that breaks even ($/cwt)", "", r.beSale, "usd2"],
       [usd(r.cog, 2), "feedlot cost of gain with interest ($/cwt)", "", r.cog, "usd2"]],
       sens: { rows: d.map(s => ({ val: s, base: s === 0, label: usd(v.sp + s) })), cols: d.map(s => ({ val: s, base: s === 0, label: usd(r.cog + s) })),
-        fn: (a, c) => retained({ ...v, sp: v.sp + a }).net / v.head - c * r.gain / 100, rowLabel: "Fed $/cwt", colLabel: "Cost of gain $/cwt" } };
+        fn: (a, c) => retained({ ...v, sp: v.sp + a }).net / v.head - c * r.gain / 100, rowLabel: "Fed cattle price ($/cwt)", colLabel: "Cost of gain ($/cwt)" } };
   }
   const r = freezer(v);
   const hh = r.hang / 2, procHalf = v.pay === "buyer" ? v.kill / 2 + v.cw * hh : 0;
@@ -883,7 +886,7 @@ function views(key, v) {
     [usd(be, 2), `average price that covers ${op ? "operating" : "all"} costs ($/lb hanging)`, "", be, "usd2"],
     [usd(perPkg, 2), "a half buyer's cost per lb of packaged beef", "", perPkg, "usd2"]],
     sens: { rows: d.map(s => ({ val: s, base: s === 0, label: `${usd(v.ph + s, 2)}` })), cols: c.map(s => ({ val: s, base: s === 0, label: usd(v.p0 + s) })),
-      fn: (a, b) => netFor(freezer({ ...v, ph: v.ph + a, pq: v.pq + a, pw: v.pw + a, p0: v.p0 + b }), v) / v.head, rowLabel: "Half price $/lb", colLabel: "Calf $/cwt" } };
+      fn: (a, b) => netFor(freezer({ ...v, ph: v.ph + a, pq: v.pq + a, pw: v.pw + a, p0: v.p0 + b }), v) / v.head, rowLabel: "Price of halves ($/lb hanging)", colLabel: "Calf value ($/cwt)" } };
 }
 const showSens = (id, s) => { $(id).innerHTML = sensGrid(s.rows, s.cols, s.fn, s.rowLabel, s.colLabel, s.neutral); };
 function drawCC(v) {
@@ -1070,7 +1073,7 @@ function reportModel(st) {
   return { key, v, r, name, file: `${name}${slug} ${isoDate()}`.replace(/\s+/g, " "), years: key === "pp" ? r.years : null,
     buy: key === "pp" ? v.price + v.extra : null, bull: key === "pp" && isBull(v), neutral: !!s.neutral,
     cash: key === "cc" || key === "st" ? cashFlow(key, v) : null,
-    unitLabel: r.unit, per: r.per, tiles: flatTiles(vw.tiles), inputs,
+    unitLabel: r.perLabel || r.unit, per: r.per, tiles: flatTiles(vw.tiles), inputs,
     sens: { title: s.title || SENS_TITLE[key], rowLabel: s.rowLabel, colLabel: s.colLabel, cols: s.cols.map(c => c.label),
       rows: s.rows.map(row => ({ label: row.label, vals: s.cols.map(c => s.fn(row.val, c.val)), base: s.cols.map(c => row.base && c.base) })) },
     hist, histCols: histColsFor(key, v), forage: forageUsed(key, v),
@@ -1453,7 +1456,7 @@ function drawPP(v) {
   const cols = isBull(v)
     ? [["Year", x => x.t], ["Calves sired", x => num(x.calves, 1)], ["Genetics value", x => usd(x.income)], ["Upkeep", x => usd(x.cost)], ["Cull value", x => x.salvage ? usd(x.salvage) : "–"], ["Net", x => usd(x.net)], ["Running total", x => usd(x.cum)]]
     : [["Year", x => x.t], ["Calves weaned", x => num(x.calves, 2)], ["Calf income", x => usd(x.income)], ["Yearly cost", x => usd(x.cost)], ["Cull value", x => x.salvage ? usd(x.salvage) : "–"], ["Net", x => usd(x.net)], ["Running total", x => usd(x.cum)]];
-  $("#pp-yearly").innerHTML = histChart(pts.map(p => ({ ...p, label: p.label })), { signed: true, fmt: x => usd(x), label: "Running cash position per head" }) +
+  $("#pp-yearly").innerHTML = histChart(pts.map(p => ({ ...p, label: p.label })), { signed: true, fmt: x => usd(x), label: "Running cash position per head", yTitle: "$ per head", xTitle: "Year in your herd" }) +
     `<p class="note" style="margin-top:6px">Running cash position per ${per}, starting with the purchase. Death loss is spread across the years as an expected share.</p>
     <div class="scroll"><table class="tbl"><thead><tr>${cols.map(c => `<th>${c[0]}</th>`).join("")}</tr></thead><tbody>
     <tr><td>Buy</td>${cols.slice(1, -1).map(() => "<td></td>").join("")}<td class="num neg">${usd(-(v.price + v.extra))}</td></tr>
@@ -1481,8 +1484,9 @@ function bullTable(r, v) {
 // each past year's prices (historyRows in budget.js), next to last month's.
 function niceStep(x) { const p = Math.pow(10, Math.floor(Math.log10(x))); return [1, 2, 2.5, 5, 10].map(m => m * p).find(s => s >= x); }
 function histChart(pts, o) {
-  const W = 640, H = 230, R = 12, T = 10, B = 26;
-  let L = 58;
+  const XT = o.xTitle ? 18 : 0, YT = o.yTitle ? 18 : 0;    // room for the axis titles (outside review, 11/18/2026)
+  const W = 640, H = 230 + XT, R = 12, T = 10, B = 26 + XT;
+  let L = 58 + YT;
   pts = pts.filter(p => Number.isFinite(p.v));
   if (o.line != null && !Number.isFinite(o.line)) o = { ...o, line: null };
   if (!pts.length) return `<p class="note">Not enough past prices for these choices.</p>`;
@@ -1490,7 +1494,7 @@ function histChart(pts, o) {
   let lo = Math.min(0, ...vals), hi = Math.max(0, ...vals);
   const step = niceStep((hi - lo) / 4 || 1);
   lo = Math.floor(lo / step) * step; hi = Math.ceil(hi / step) * step;
-  for (let v = lo; v <= hi + step / 2; v += step) L = Math.max(L, 14 + 7.4 * String(o.fmt(v, true)).length);   // room for the widest label
+  for (let v = lo; v <= hi + step / 2; v += step) L = Math.max(L, YT + 14 + 7.4 * String(o.fmt(v, true)).length);   // room for the widest label
   const y = v => T + (hi - v) / (hi - lo) * (H - T - B), bw = (W - L - R) / pts.length;
   let s = `<svg class="hchart" viewBox="0 0 ${W} ${H}" role="img" tabindex="0" aria-label="${o.label}. Use the arrow keys to read each bar.">`;
   for (let v = lo; v <= hi + step / 2; v += step) {
@@ -1501,8 +1505,10 @@ function histChart(pts, o) {
     const x = L + i * bw + bw * .15, w = bw * .7, top = y(Math.max(p.v, 0)), h = Math.abs(y(p.v) - y(0));
     const cls = p.now ? "now" : !o.signed || p.v >= 0 ? "up" : "down";
     s += `<rect x="${x}" y="${top}" width="${w}" height="${Math.max(h, 1)}" class="${cls}" data-say="${p.title}: ${o.fmt(p.v)}"><title>${p.title}: ${o.fmt(p.v)}</title></rect>`;
-    if (p.now || pts.length <= 12 || i % 2 === 0) s += `<text x="${x + w / 2}" y="${H - 8}" text-anchor="middle"${p.now ? ' class="nowlab"' : ""}>${p.now ? "Now" : typeof p.label === "number" && p.label > 1900 && pts.length > 10 ? "’" + String(p.label).slice(-2) : p.label}</text>`;
+    if (p.now || pts.length <= 12 || i % 2 === 0) s += `<text x="${x + w / 2}" y="${H - 8 - XT}" text-anchor="middle"${p.now ? ' class="nowlab"' : ""}>${p.now ? "Now" : typeof p.label === "number" && p.label > 1900 && pts.length > 10 ? "’" + String(p.label).slice(-2) : p.label}</text>`;
   });
+  if (o.yTitle) s += `<text class="axt" transform="translate(13 ${(T + H - B) / 2}) rotate(-90)" text-anchor="middle">${o.yTitle}</text>`;
+  if (o.xTitle) s += `<text class="axt" x="${(L + W - R) / 2}" y="${H - 4}" text-anchor="middle">${o.xTitle}</text>`;
   if (o.line != null) s += `<line x1="${L}" x2="${W - R}" y1="${y(o.line)}" y2="${y(o.line)}" class="ref"/><text x="${W - R}" y="${y(o.line) - 5}" text-anchor="end" class="reflab">${o.lineLabel}</text>`;
   return s + `</svg><p class="readout" aria-live="polite">Point at a bar, or click the chart and use the arrow keys, to read it.</p>`;
 }
@@ -1549,21 +1555,21 @@ function drawHistory(st) {
   if (st.key === "cc") {               // return over operating costs, whatever the cost switch says
     const r = cowCalf(v);
     pts = rows.map(x => ({ ...yr(x), v: x.netOp })).concat([{ label: "Now", title: nowT, v: (r.income - r.op) / r.N, now: true }]);
-    o = { signed: true, fmt: money, label: "Return over operating costs per cow by year" };
+    o = { signed: true, fmt: money, label: "Return over operating costs per cow by year", yTitle: "$ per cow", xTitle: "Year calves sold" };
     title = `Your budget in past years: return over operating costs per cow, calves sold in ${MONTHS_LONG[v.month]}`;
     note = heldNote("cc", v);
     cols = [["Year", x => x.year], ["Steer calf $/cwt", x => usd(x.price, 2)], ["Covers operating costs $/cwt", x => usd(x.beOp, 2)], ["Over operating costs per cow", x => usd(x.netOp)]];
   } else if (st.key === "st") {
     const r = stocker(v);
     pts = rows.map(x => ({ ...yr(x), v: x.netOp })).concat([{ label: "Now", title: nowT, v: (r.income - r.op) / r.N, now: true }]);
-    o = { signed: true, fmt: money, label: "Return over operating costs per head by year bought" };
+    o = { signed: true, fmt: money, label: "Return over operating costs per head by year bought", yTitle: "$ per head", xTitle: "Year bought" };
     title = `Your budget in past years: return over operating costs per head, bought in ${MONTHS_LONG[v.bmonth]}`;
     note = `Bought and sold at each year's ${STATE.name} auction prices for those months. ${heldNote("st", v)}`;
     cols = [["Year", x => x.year], ["Buy $/cwt", x => usd(x.buy, 2)], ["Sell $/cwt", x => usd(x.price, 2)], ["Over operating costs per head", x => usd(x.netOp)]];
   } else if (st.key === "ro") {
     const r = retained(v);
     pts = rows.map(x => ({ ...yr(x), v: x.net, title: `Weaned ${x.year}, sold ${x.sold}` })).concat([{ label: "Now", title: `${nowT} and futures`, v: r.net / r.N, now: true }]);
-    o = { signed: true, fmt: money, label: "Retaining vs selling at weaning by year weaned" };
+    o = { signed: true, fmt: money, label: "Retaining vs selling at weaning by year weaned", yTitle: "$ per head", xTitle: "Year weaned" };
     title = `Your budget in past years: retaining vs. selling at weaning, by year weaned`;
     note = `Fed cattle sold at the 5-area cash price the month they would have finished; "Now" uses futures. ${heldNote("ro", v)}`;
     cols = [["Weaned", x => x.year], ["Calf $/cwt", x => usd(x.wean, 2)], ["Sold", x => x.sold], ["Fed $/cwt", x => usd(x.price, 2)], ["Net per head", x => usd(x.net)]];
@@ -1571,7 +1577,7 @@ function drawHistory(st) {
     const r = freezer(v);
     const op = coverOp(v), key = op ? "beOp" : "be";
     pts = rows.map(x => ({ ...yr(x), v: x[key] })).concat([{ label: "Now", title: nowT, v: op ? r.op / r.lbs : r.beHang, now: true }]);
-    o = { signed: false, fmt: perLb, label: "Cost per pound of hanging weight by year", line: r.avgPrice, lineLabel: `Your average price ${usd(r.avgPrice, 2)}/lb` };
+    o = { signed: false, fmt: perLb, label: "Cost per pound of hanging weight by year", yTitle: "$ per lb hanging", xTitle: "Year finishing started", line: r.avgPrice, lineLabel: `Your average price ${usd(r.avgPrice, 2)}/lb` };
     title = `Your budget in past years: ${op ? "operating cost" : "cost"} per pound of hanging weight`;
     note = `Includes the calf's auction value. The line is your price; past freezer beef prices aren't published. ${heldNote("fb", v)}`;
     cols = [["Year", x => x.year], ["Calf $/cwt", x => usd(x.calf, 2)], [op ? "Operating cost per lb hanging" : "Cost per lb hanging", x => usd(x[key], 2)]];
@@ -1703,7 +1709,7 @@ function loadState() { try { return JSON.parse(localStorage.getItem(STORE) || "n
 function forgetSaved() { try { localStorage.removeItem(STORE); } catch (e) { /* storage unavailable */ } }
 const SPECS = { cc: CC, st: ST, ro: RO, fb: FB, pp: PP };
 // typed prices a new data month replaces (1A2); herd and practice inputs stay
-const MONTH_PRICES = { cc: ["sp", "hp", "cp", "bp", "hayp"], st: ["p0", "p1", "hayp"], ro: ["wp", "fut", "basis", "sp"], fb: ["p0", "hayp", "ph", "pq", "pw"], pp: ["price", "cp", "cullp"] };
+const MONTH_PRICES = { cc: ["sp", "hp", "cp", "bp", "hayp", "balep"], st: ["p0", "p1", "hayp", "balep"], ro: ["wp", "fut", "basis", "sp"], fb: ["p0", "hayp", "balep", "ph", "pq", "pw"], pp: ["price", "cp", "cullp"] };
 // A saved value is kept only while it's still valid for its field: a choice that's still
 // offered, a 0/1 box, a finite number (1A1).
 function validTyped(spec, typed) {
@@ -1760,7 +1766,7 @@ function resetShared() {     // prices, worksheets and report fields back to the
 // interest rate and the MSU forage worksheets stay Mississippi's for every state (3E).
 let MS_DATA = null, REGION_CHOSEN = false;
 const STATE_CACHE = {};
-const MS_FIELDS = new Set(["hayp", "feed", "fcP", "fcW", "fcH", "fcG", "fuP", "fuW", "fuH", "fuG", "wsN", "wsPK", "wsWeed"]);
+const MS_FIELDS = new Set(["hayp", "balep", "feed", "fcP", "fcW", "fcH", "fcG", "fuP", "fuW", "fuH", "fuG", "wsN", "wsPK", "wsWeed"]);
 const MS_PRICES = new Set(["urea", "dap", "potash", "diesel", "soyhulls", "cottonseed", "cgf", "corn", "csm"]);
 // prices that follow the state: a typed one is dropped when the state changes
 const STATE_PRICES = { cc: ["sp", "hp", "cgrade", "cwt_", "cp", "bp"], st: ["p0", "p1"], ro: ["wp"], fb: ["p0"], pp: ["cp", "cullwt", "cullp"] };
